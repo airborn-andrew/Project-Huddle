@@ -1,0 +1,5 @@
+ezdxf
+shapely
+trimesh
+numpy
+mapbox-earcut

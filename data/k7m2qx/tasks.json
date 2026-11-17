@@ -1,0 +1,557 @@
+{
+  "tasks": [
+    {
+      "id": "insulation-crawlspace-insulation",
+      "room": "crawlspace",
+      "category": "Insulation",
+      "step": "insulation",
+      "title": "Insulation and vapor barrier"
+    },
+    {
+      "id": "tearout-kitchen-cabinets",
+      "room": "kitchen",
+      "category": "Cabinets",
+      "step": "tearout",
+      "title": "Cabinets removed"
+    },
+    {
+      "id": "tearout-kitchen-appliances",
+      "room": "kitchen",
+      "category": "Appliances",
+      "step": "tearout",
+      "title": "Appliances pulled out"
+    },
+    {
+      "id": "tearout-kitchen-fixtures",
+      "room": "kitchen",
+      "category": "Fixtures",
+      "step": "tearout",
+      "title": "Sink disconnected"
+    },
+    {
+      "id": "tearout-hallway_bath-fixtures",
+      "room": "hallway_bath",
+      "category": "Fixtures",
+      "step": "tearout",
+      "title": "Toilet and vanity removed"
+    },
+    {
+      "id": "tearout-b1_bath-fixtures",
+      "room": "b1_bath",
+      "category": "Fixtures",
+      "step": "tearout",
+      "title": "Toilet and vanity removed"
+    },
+    {
+      "id": "cabinets-kitchen-cabinets",
+      "room": "kitchen",
+      "category": "Cabinets",
+      "step": "cabinets",
+      "title": "Cabinet boxes rebuilt"
+    },
+    {
+      "id": "paint-living-paint",
+      "room": "living",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-kitchen-paint",
+      "room": "kitchen",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-office-paint",
+      "room": "office",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-hallway-paint",
+      "room": "hallway",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-hallway_bath-paint",
+      "room": "hallway_bath",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-bedroom_1-paint",
+      "room": "bedroom_1",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-b1_bath-paint",
+      "room": "b1_bath",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-b1_closet-paint",
+      "room": "b1_closet",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-bedroom_2-paint",
+      "room": "bedroom_2",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-b2_closet-paint",
+      "room": "b2_closet",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-bedroom_3-paint",
+      "room": "bedroom_3",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "paint-b3_closet-paint",
+      "room": "b3_closet",
+      "category": "Paint",
+      "step": "paint",
+      "title": "Walls painted"
+    },
+    {
+      "id": "flooring-living-flooring",
+      "room": "living",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-kitchen-flooring",
+      "room": "kitchen",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-office-flooring",
+      "room": "office",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-hallway-flooring",
+      "room": "hallway",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-hallway_bath-flooring",
+      "room": "hallway_bath",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-bedroom_1-flooring",
+      "room": "bedroom_1",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-b1_bath-flooring",
+      "room": "b1_bath",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-b1_closet-flooring",
+      "room": "b1_closet",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-bedroom_2-flooring",
+      "room": "bedroom_2",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-b2_closet-flooring",
+      "room": "b2_closet",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-bedroom_3-flooring",
+      "room": "bedroom_3",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "flooring-b3_closet-flooring",
+      "room": "b3_closet",
+      "category": "Flooring",
+      "step": "flooring",
+      "title": "New plank flooring"
+    },
+    {
+      "id": "reset-kitchen-cabinets",
+      "room": "kitchen",
+      "category": "Cabinets",
+      "step": "reset",
+      "title": "Countertop set"
+    },
+    {
+      "id": "reset-kitchen-appliances",
+      "room": "kitchen",
+      "category": "Appliances",
+      "step": "reset",
+      "title": "Appliances back in place"
+    },
+    {
+      "id": "reset-kitchen-fixtures",
+      "room": "kitchen",
+      "category": "Fixtures",
+      "step": "reset",
+      "title": "Sink reconnected"
+    },
+    {
+      "id": "reset-hallway_bath-fixtures",
+      "room": "hallway_bath",
+      "category": "Fixtures",
+      "step": "reset",
+      "title": "New vanity, toilet reset"
+    },
+    {
+      "id": "reset-b1_bath-fixtures",
+      "room": "b1_bath",
+      "category": "Fixtures",
+      "step": "reset",
+      "title": "New vanity, toilet reset"
+    },
+    {
+      "id": "doors-office-doors",
+      "room": "office",
+      "category": "Doors",
+      "step": "doors",
+      "title": "New door"
+    },
+    {
+      "id": "doors-hallway_bath-doors",
+      "room": "hallway_bath",
+      "category": "Doors",
+      "step": "doors",
+      "title": "New door"
+    },
+    {
+      "id": "doors-bedroom_1-doors",
+      "room": "bedroom_1",
+      "category": "Doors",
+      "step": "doors",
+      "title": "New door"
+    },
+    {
+      "id": "doors-bedroom_2-doors",
+      "room": "bedroom_2",
+      "category": "Doors",
+      "step": "doors",
+      "title": "New door"
+    },
+    {
+      "id": "doors-bedroom_3-doors",
+      "room": "bedroom_3",
+      "category": "Doors",
+      "step": "doors",
+      "title": "New door"
+    },
+    {
+      "id": "doors-b1_closet-doors",
+      "room": "b1_closet",
+      "category": "Doors",
+      "step": "doors",
+      "title": "Closet doors rehung"
+    },
+    {
+      "id": "doors-b2_closet-doors",
+      "room": "b2_closet",
+      "category": "Doors",
+      "step": "doors",
+      "title": "Closet doors rehung"
+    },
+    {
+      "id": "doors-b3_closet-doors",
+      "room": "b3_closet",
+      "category": "Doors",
+      "step": "doors",
+      "title": "Closet doors rehung"
+    },
+    {
+      "id": "baseboard-living-baseboard",
+      "room": "living",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-kitchen-baseboard",
+      "room": "kitchen",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Quarter round"
+    },
+    {
+      "id": "baseboard-office-baseboard",
+      "room": "office",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-hallway-baseboard",
+      "room": "hallway",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-hallway_bath-baseboard",
+      "room": "hallway_bath",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard and quarter round"
+    },
+    {
+      "id": "baseboard-bedroom_1-baseboard",
+      "room": "bedroom_1",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-b1_bath-baseboard",
+      "room": "b1_bath",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard and quarter round"
+    },
+    {
+      "id": "baseboard-b1_closet-baseboard",
+      "room": "b1_closet",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-bedroom_2-baseboard",
+      "room": "bedroom_2",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-b2_closet-baseboard",
+      "room": "b2_closet",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-bedroom_3-baseboard",
+      "room": "bedroom_3",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "baseboard-b3_closet-baseboard",
+      "room": "b3_closet",
+      "category": "Baseboard",
+      "step": "baseboard",
+      "title": "Baseboard"
+    },
+    {
+      "id": "trim-living-paint",
+      "room": "living",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-office-paint",
+      "room": "office",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-hallway-paint",
+      "room": "hallway",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-hallway_bath-paint",
+      "room": "hallway_bath",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-bedroom_1-paint",
+      "room": "bedroom_1",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-b1_bath-paint",
+      "room": "b1_bath",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-b1_closet-paint",
+      "room": "b1_closet",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-bedroom_2-paint",
+      "room": "bedroom_2",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-b2_closet-paint",
+      "room": "b2_closet",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-bedroom_3-paint",
+      "room": "bedroom_3",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "trim-b3_closet-paint",
+      "room": "b3_closet",
+      "category": "Paint",
+      "step": "trim",
+      "title": "Trim and doors painted"
+    },
+    {
+      "id": "clean-living-clean",
+      "room": "living",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-kitchen-clean",
+      "room": "kitchen",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-office-clean",
+      "room": "office",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-hallway-clean",
+      "room": "hallway",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-hallway_bath-clean",
+      "room": "hallway_bath",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-bedroom_1-clean",
+      "room": "bedroom_1",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-b1_bath-clean",
+      "room": "b1_bath",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-b1_closet-clean",
+      "room": "b1_closet",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-bedroom_2-clean",
+      "room": "bedroom_2",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-b2_closet-clean",
+      "room": "b2_closet",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-bedroom_3-clean",
+      "room": "bedroom_3",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    },
+    {
+      "id": "clean-b3_closet-clean",
+      "room": "b3_closet",
+      "category": "Clean",
+      "step": "clean",
+      "title": "Final clean"
+    }
+  ]
+}
