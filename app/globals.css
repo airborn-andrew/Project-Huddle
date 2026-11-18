@@ -1439,6 +1439,51 @@ textarea.field {
   margin-top: 0;
 }
 
+/* People */
+
+.person {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.person > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--fill-strong);
+  color: var(--secondary);
+  font: 600 17px/1 var(--font);
+}
+
+.person-days {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font: var(--subhead);
+}
+
+.person-days li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.person-days li span:last-child {
+  flex: none;
+  color: var(--secondary);
+}
+
 /* OHI notes, as the homeowner sees them */
 
 .notes {
