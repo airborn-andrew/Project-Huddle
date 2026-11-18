@@ -8,12 +8,14 @@
     {
       "id": "main",
       "name": "Main Level",
-      "height": 8.0
+      "height": 8.0,
+      "stack": 0
     },
     {
       "id": "crawlspace",
       "name": "Crawlspace",
-      "height": 2.5
+      "height": 2.5,
+      "stack": -1
     }
   ],
   "rooms": [
@@ -5741,6 +5743,7 @@
   ],
   "openings": [
     {
+      "level": "main",
       "kind": "door",
       "exterior": true,
       "width": 4.917,
@@ -5748,20 +5751,7 @@
       "top": 6.667
     },
     {
-      "kind": "door",
-      "exterior": true,
-      "width": 3.0,
-      "bottom": 0.0,
-      "top": 6.667
-    },
-    {
-      "kind": "window",
-      "exterior": true,
-      "width": 4.917,
-      "bottom": 2.333,
-      "top": 7.333
-    },
-    {
+      "level": "main",
       "kind": "door",
       "exterior": true,
       "width": 3.0,
@@ -5769,6 +5759,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "window",
       "exterior": true,
       "width": 4.917,
@@ -5776,6 +5767,23 @@
       "top": 7.333
     },
     {
+      "level": "main",
+      "kind": "door",
+      "exterior": true,
+      "width": 3.0,
+      "bottom": 0.0,
+      "top": 6.667
+    },
+    {
+      "level": "main",
+      "kind": "window",
+      "exterior": true,
+      "width": 4.917,
+      "bottom": 2.333,
+      "top": 7.333
+    },
+    {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 2.667,
@@ -5783,6 +5791,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 6.583,
@@ -5790,6 +5799,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "window",
       "exterior": true,
       "width": 4.917,
@@ -5797,6 +5807,7 @@
       "top": 7.333
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 4.917,
@@ -5804,6 +5815,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "window",
       "exterior": true,
       "width": 2.833,
@@ -5811,6 +5823,7 @@
       "top": 7.333
     },
     {
+      "level": "main",
       "kind": "window",
       "exterior": true,
       "width": 4.833,
@@ -5818,6 +5831,7 @@
       "top": 7.333
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 2.167,
@@ -5825,6 +5839,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 2.5,
@@ -5832,6 +5847,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "window",
       "exterior": true,
       "width": 3.917,
@@ -5839,6 +5855,7 @@
       "top": 7.333
     },
     {
+      "level": "main",
       "kind": "window",
       "exterior": true,
       "width": 3.917,
@@ -5846,6 +5863,7 @@
       "top": 7.333
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 4.417,
@@ -5853,6 +5871,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 2.667,
@@ -5860,6 +5879,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 2.667,
@@ -5867,6 +5887,7 @@
       "top": 6.667
     },
     {
+      "level": "main",
       "kind": "door",
       "exterior": false,
       "width": 2.917,

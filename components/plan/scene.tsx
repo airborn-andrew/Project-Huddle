@@ -5,13 +5,18 @@ import { Edges, Environment, Lightformer, OrbitControls, useGLTF } from "@react-
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import type { Category, Room } from "@/lib/types";
+import type { Category, Plan, Room } from "@/lib/types";
 
 export type LayerState = "pending" | "active" | "done";
 export type RoomLook = { active: boolean; layers: Partial<Record<Category, LayerState>> };
 
-/** How far the Crawlspace floats below the Main Level, in feet. */
+/** How far apart the levels float, in feet. */
 const LEVEL_GAP = 7;
+
+export type Level = Plan["levels"][number];
+
+/** Height of each level in the scene. */
+export const levelHeights = (levels: Level[]) => Object.fromEntries(levels.map((l) => [l.id, l.stack * LEVEL_GAP]));
 /** Walls are cut down like a dollhouse so every room stays in view. */
 const CUTAWAY = 0.5;
 
@@ -29,13 +34,14 @@ const partCategory: Record<string, Category> = {
 type Part = { name: string; level: string; room: string; kind: string; geometry: THREE.BufferGeometry };
 
 /** Scene position of a room's center (plan y is north, the scene's -z). */
-export function roomAnchor(room: Room, height = 0): [number, number, number] {
+export function roomAnchor(room: Room, levelY: Record<string, number>, height = 0): [number, number, number] {
+  const y = levelY[room.level] ?? 0;
   if (room.level === "crawlspace") {
     // The crawlspace sits under the house, so its label hangs off the front edge.
     const south = Math.min(...room.polygon.map(([, y]) => y));
-    return [room.center[0], -LEVEL_GAP + 1.3 * CUTAWAY + height, -south + 1.5];
+    return [room.center[0], y + 1.3 * CUTAWAY + height, -south + 1.5];
   }
-  return [room.center[0], height, -room.center[1]];
+  return [room.center[0], y + height, -room.center[1]];
 }
 
 /** Scene position for a label that covers the whole house. */
@@ -45,14 +51,14 @@ const houseAnchor: [number, number, number] = [0, 0.2, 0];
  * Labels, bubbles and the picked-room marker are plain page elements with ids
  * like "anchor-kitchen". Each frame this moves them to their room's spot on screen.
  */
-function Projector({ rooms, root }: { rooms: Room[]; root: React.RefObject<THREE.Group | null> }) {
+function Projector({ rooms, levels, root }: { rooms: Room[]; levels: Level[]; root: React.RefObject<THREE.Group | null> }) {
   const { camera, size } = useThree();
   const points = useMemo(
     () => [
-      ...rooms.map((r) => ({ id: r.id, at: new THREE.Vector3(...roomAnchor(r, 0.2)) })),
+      ...rooms.map((r) => ({ id: r.id, at: new THREE.Vector3(...roomAnchor(r, levelHeights(levels), 0.2)) })),
       { id: "house", at: new THREE.Vector3(...houseAnchor) },
     ],
-    [rooms],
+    [rooms, levels],
   );
   const v = useMemo(() => new THREE.Vector3(), []);
 
@@ -76,6 +82,7 @@ function Projector({ rooms, root }: { rooms: Room[]; root: React.RefObject<THREE
 
 export type SceneProps = {
   model: string;
+  levels: Level[];
   rooms: Room[];
   looks: Record<string, RoomLook>;
   selected: string | null;
@@ -109,7 +116,7 @@ export function Scene(props: SceneProps) {
   );
 }
 
-function House({ model, rooms, looks, selected, onSelect, reducedMotion }: SceneProps) {
+function House({ model, levels, rooms, looks, selected, onSelect, reducedMotion }: SceneProps) {
   const { scene } = useGLTF(model);
   const root = useRef<THREE.Group>(null);
   const pulse = useRef(0);
@@ -131,6 +138,7 @@ function House({ model, rooms, looks, selected, onSelect, reducedMotion }: Scene
   }, [scene]);
 
   const mats = useMemo(() => makeMaterials(), []);
+  const levelY = useMemo(() => levelHeights(levels), [levels]);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
@@ -150,7 +158,7 @@ function House({ model, rooms, looks, selected, onSelect, reducedMotion }: Scene
     <group ref={root}>
       {parts.map((p) => {
         const look = looks[p.room];
-        const y = p.level === "crawlspace" ? -LEVEL_GAP : 0;
+        const y = levelY[p.level] ?? 0;
         const dim = selected !== null && p.room !== selected && p.room !== "house" && p.kind === "floor";
         const { material, edges, visible } = pickMaterial(p, look, mats, p.room === selected, dim);
         if (!visible) return null;
@@ -169,7 +177,7 @@ function House({ model, rooms, looks, selected, onSelect, reducedMotion }: Scene
           </mesh>
         );
       })}
-      <Projector rooms={rooms} root={root} />
+      <Projector rooms={rooms} levels={levels} root={root} />
     </group>
   );
 }
@@ -259,7 +267,7 @@ function pickMaterial(p: Part, look: RoomLook | undefined, m: Mats, selected: bo
 }
 
 /** Frames the plan on load and on reset, and flies to a room when one is picked. */
-function CameraRig({ rooms, selected, resetKey, reducedMotion, onInteract, onHeading }: SceneProps) {
+function CameraRig({ levels, rooms, selected, resetKey, reducedMotion, onInteract, onHeading }: SceneProps) {
   const controls = useRef<OrbitControlsImpl>(null);
   const { camera, size } = useThree();
   const goal = useRef<{ target: THREE.Vector3; position: THREE.Vector3 } | null>(null);
@@ -281,7 +289,7 @@ function CameraRig({ rooms, selected, resetKey, reducedMotion, onInteract, onHea
     if (!selected) return;
     const room = rooms.find((r) => r.id === selected);
     if (!room) return;
-    const [x, y, z] = roomAnchor(room);
+    const [x, y, z] = roomAnchor(room, levelHeights(levels));
     const center = new THREE.Vector3(x, y, z);
     const portrait = size.width / size.height < 0.9;
     const dir = camera.position.clone().sub(controls.current?.target ?? new THREE.Vector3()).normalize();
@@ -297,7 +305,7 @@ function CameraRig({ rooms, selected, resetKey, reducedMotion, onInteract, onHea
       target,
       position: target.clone().add(dir.multiplyScalar(portrait ? 82 : 68)),
     };
-  }, [selected, rooms, camera, size.width, size.height]);
+  }, [selected, rooms, levels, camera, size.width, size.height]);
 
   const heading = useRef(NaN);
 

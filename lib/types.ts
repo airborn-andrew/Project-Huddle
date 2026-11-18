@@ -12,7 +12,8 @@ export type Category =
 export type Room = {
   id: string;
   name: string;
-  level: "main" | "crawlspace";
+  /** Level id from plan.levels; "crawlspace" for the crawlspace under the lowest level. */
+  level: string;
   areaSF: number;
   /** Plan feet: x east, y north. In the scene, z = -y. */
   center: [number, number];
@@ -21,7 +22,8 @@ export type Room = {
 
 export type Plan = {
   size: [number, number];
-  levels: { id: string; name: string; height: number }[];
+  /** Top to bottom. `stack` is 0 for the main level, +1 per level up and -1 per level down. */
+  levels: { id: string; name: string; height: number; stack: number }[];
   rooms: Room[];
 };
 

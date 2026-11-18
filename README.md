@@ -14,13 +14,15 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | `lib/state.ts` | Project state in Vercel Blob (in memory when no Blob token is set) |
 | `data/<slug>/plan.json` | Rooms from the sketch |
 | `data/<slug>/days.json` | The project's production days: each template and the rooms it covers |
-| `public/models/<slug>.glb` | The 3D model from the sketch |
+| `public/models/<slug>.glb` | The 3D model from the sketch, every level stacked; nodes are named `<level>__<room>__<part>` |
 | `pipeline/dxf_to_plan.py` | Sketch DXF and scope PDF to `plan.json`, `days.json` and `.glb` |
 | `pipeline/scope.py`, `pipeline/day_rules.py` | Reading the scope, and the rules that turn its line items into production days |
 
 ## Adding a project
 
-1. In Xactimate, export the sketch as DXF and the estimate as a PDF. Put both in `pipeline/input/<slug>/`, using a random lowercase slug. This folder is never committed; the files are read during the build and stay on your machine.
+1. In Xactimate, export the estimate as a PDF and each level of the sketch as a DXF. Put them in `pipeline/input/<slug>/`, using a random lowercase slug. This folder is never committed; the files are read during the build and stay on your machine.
+
+   Name each DXF after the level the scope uses, with a number in front for the order from the bottom up: `1 Main Level.dxf`, `2 Upper Level.dxf`. A job with one level can name its DXF anything. When the scope has a Crawlspace section, the model adds a crawlspace under the lowest level.
 2. Run the pipeline:
 
    ```
