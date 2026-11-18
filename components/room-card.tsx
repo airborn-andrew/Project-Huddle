@@ -2,23 +2,28 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
-import { dayFormat, workdayDate } from "@/lib/sequence";
+import { NoteList } from "@/components/notes";
+import { dayFormat, workdayDate, type Calendar } from "@/lib/sequence";
 import { templateById } from "@/lib/templates";
-import type { Photo, Room, ScheduledTask } from "@/lib/types";
+import type { Note, Photo, Room, ScheduledTask } from "@/lib/types";
 
 /** The detail card for the picked room: each production day that works in it. */
 export function RoomCard({
   room,
   tasks,
-  startDate,
+  cal,
   day,
+  expect,
+  notes,
   photos,
   onClose,
 }: {
   room: Room;
   tasks: ScheduledTask[];
-  startDate: string;
+  cal: Calendar;
   day: number;
+  expect: Record<string, string>;
+  notes: Note[];
   photos: Photo[];
   onClose: () => void;
 }) {
@@ -26,9 +31,9 @@ export function RoomCard({
   const sorted = [...tasks].sort((a, b) => a.day - b.day);
 
   const when = (t: ScheduledTask) => {
-    const first = dayFormat.format(workdayDate(startDate, t.day));
+    const first = dayFormat.format(workdayDate(cal, t.day));
     if (t.days === 1) return first;
-    return `${first} – ${dayFormat.format(workdayDate(startDate, t.day + t.days - 1)).split(", ")[1]}`;
+    return `${first} – ${dayFormat.format(workdayDate(cal, t.day + t.days - 1)).split(", ")[1]}`;
   };
 
   const stateOf = (t: ScheduledTask) =>
@@ -57,12 +62,13 @@ export function RoomCard({
             {open === t.id && (
               <div className="row-detail">
                 <p>{templateById(t.step)?.what}</p>
-                <p>{templateById(t.step)?.expect}</p>
+                <p>{expect[t.step] ?? templateById(t.step)?.expect}</p>
               </div>
             )}
           </li>
         ))}
       </ul>
+      {notes.length > 0 && <NoteList notes={notes} />}
       {photos.length > 0 && (
         <div className="photos">
           {photos.map((p) => (

@@ -1,5 +1,5 @@
 import { del, list, put } from "@vercel/blob";
-import type { ProjectState } from "@/lib/types";
+import type { Editable, ProjectState, Role } from "@/lib/types";
 
 /**
  * Each project's state is one JSON file in Vercel Blob. Every save writes a
@@ -11,12 +11,41 @@ const hasBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 
 export const defaultState = (): ProjectState => ({
   startDate: "2026-11-18",
-  overrides: {},
+  schedule: null,
+  offDays: [],
+  notes: [],
+  expect: {},
   changeOrders: [],
-  messages: [],
   photos: {},
   closeout: { warranty: "", punch: [], documents: [] },
+  people: { pm: { name: "Andrew Pearson" }, subs: [] },
+  messages: [],
+  draft: null,
+  undo: [],
+  log: [],
 });
+
+const editableKeys = [
+  "startDate",
+  "schedule",
+  "offDays",
+  "notes",
+  "expect",
+  "changeOrders",
+  "photos",
+  "closeout",
+  "people",
+] as const satisfies readonly (keyof Editable)[];
+
+/** The published parts of the state that OHI edits. */
+export function editable(s: Editable): Editable {
+  return structuredClone(Object.fromEntries(editableKeys.map((k) => [k, s[k]])) as Editable);
+}
+
+/** What the homeowner receives: the published project, never OHI's draft or log. */
+export function forRole(s: ProjectState, role: Role): ProjectState {
+  return role === "ohi" ? s : { ...s, draft: null, undo: [], log: [] };
+}
 
 const prefix = (slug: string) => `projects/${slug}/state`;
 

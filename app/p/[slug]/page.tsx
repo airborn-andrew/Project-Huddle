@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Huddle } from "@/components/huddle";
 import { cookieName, readToken } from "@/lib/access";
 import { projectConfig, projectData } from "@/lib/projects";
-import { readState } from "@/lib/state";
+import { forRole, readState } from "@/lib/state";
 
 export const dynamic = "force-dynamic";
 
@@ -21,8 +21,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ slug: 
       name={config.name}
       role={role}
       plan={data.plan}
-      tasks={data.tasks}
-      initialState={await readState(slug)}
+      phases={data.phases}
+      initialState={forRole(await readState(slug), role)}
     />
   );
 }

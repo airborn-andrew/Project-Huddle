@@ -10,5 +10,5 @@ export default async function EditPage({ params }: { params: Promise<{ slug: str
   const config = projectConfig(slug);
   const data = await projectData(slug);
   if (!config || !data) notFound();
-  return <Editor slug={slug} name={config.name} plan={data.plan} tasks={data.tasks} initialState={await readState(slug)} />;
+  return <Editor slug={slug} name={config.name} plan={data.plan} phases={data.phases} initialState={await readState(slug)} />;
 }

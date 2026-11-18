@@ -11,7 +11,7 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | `components/plan/scene.tsx` | The 3D plan: model, materials by work state, camera, room labels |
 | `lib/templates.ts` | Production day templates: title, what happens, what to expect, default days |
 | `lib/sequence.ts` | Holidays, workday dates, and turning production days into the schedule |
-| `lib/state.ts` | Project state in Vercel Blob (in memory when no Blob token is set) |
+| `lib/state.ts` | Project state in Vercel Blob (in memory when no Blob token is set): the published project, OHI's draft, undo history and change log |
 | `data/<slug>/plan.json` | Rooms from the sketch |
 | `data/<slug>/days.json` | The project's production days: each template and the rooms it covers |
 | `public/models/<slug>.glb` | The 3D model from the sketch, every level stacked; nodes are named `<level>__<room>__<part>` |
@@ -46,6 +46,16 @@ The homeowner sees production days, never line items. Each line item in the scop
 When a job has work no template covers, add a template to `lib/templates.ts` and `pipeline/day_rules.py` (same id, same order), then a rule for the line item. Every later job reuses it.
 
 The project link is `/p/<slug>`.
+
+## The OHI view
+
+The OHI code opens `/p/<slug>/edit`. Every change there lands in a draft that only OHI sees; **Push to homeowner** publishes it. Undo steps back one change at a time until the next push, and the change log lists every edit with its time. Messages and the homeowner's change order answers are never drafted: they go live at once.
+
+From the OHI view you can:
+
+- **Schedule:** set the start date and off days; move a production day, change its length (later days move with it), add one from the templates, remove one, change its rooms, mark it done, and rewrite what to expect for this project.
+- **Content:** post notes and photos to a day, a room or both; create, edit and withdraw change orders; fill in closeout.
+- **People:** set the project manager and the subs, and the production days each sub is on site.
 
 ## Environment variables
 

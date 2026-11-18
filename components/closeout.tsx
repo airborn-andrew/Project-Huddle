@@ -8,10 +8,13 @@ import type { ProjectState, Room } from "@/lib/types";
 export function CloseoutSheet({
   rooms,
   state,
+  walkthrough,
   onClose,
 }: {
   rooms: Room[];
   state: ProjectState;
+  /** The final walkthrough day on the schedule. */
+  walkthrough: Date | null;
   onClose: () => void;
 }) {
   const { closeout } = state;
@@ -21,7 +24,13 @@ export function CloseoutSheet({
     <Sheet title="Closeout" onClose={onClose}>
       <p className="label">Final walkthrough</p>
       <div className="group">
-        <h3>{closeout.walkthrough ? longDayFormat.format(parseDate(closeout.walkthrough)) : "Not scheduled yet"}</h3>
+        <h3>
+          {closeout.walkthrough
+            ? longDayFormat.format(parseDate(closeout.walkthrough))
+            : walkthrough
+              ? longDayFormat.format(walkthrough)
+              : "Not scheduled yet"}
+        </h3>
       </div>
 
       <p className="label">Punch list</p>

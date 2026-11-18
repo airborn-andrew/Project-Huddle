@@ -1,32 +1,55 @@
-import { templateById, templates } from "@/lib/templates";
-import type { Phase, ProjectState, Room, ScheduledTask, Task } from "@/lib/types";
+import { templateById } from "@/lib/templates";
+import type { Editable, Phase, PhaseEdit, Room, ScheduledTask } from "@/lib/types";
 
-/** Trade order and default length in workdays, from the day templates. */
-export const steps = templates.map((t) => ({ id: t.id, days: t.days }));
-
-/** Days the crew is off besides weekends. */
+/** Days the crew is off besides weekends. OHI adds more per project. */
 export const holidays = new Set(["2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25", "2027-01-01"]);
 
-/** One task per room per production phase, titled by the phase's template. */
-export function buildTasks(phases: Phase[], rooms: Room[]): Task[] {
-  const tasks: Task[] = [];
-  for (const phase of phases) {
+/** A project's working calendar: the start date and its extra off days. */
+export type Calendar = { start: string; off: string[] };
+
+export const calendarOf = (s: Pick<Editable, "startDate" | "offDays">): Calendar => ({ start: s.startDate, off: s.offDays });
+
+/** The production days from days.json laid end to end in trade order, from day 0. */
+export function defaultSchedule(phases: Phase[]): PhaseEdit[] {
+  let start = 0;
+  return phases.map((p) => {
+    const days = templateById(p.template)?.days ?? 1;
+    const phase = { id: p.template, template: p.template, rooms: p.rooms, start, days, done: false };
+    start += days;
+    return phase;
+  });
+}
+
+/** The schedule in force: OHI's edits, or the default from days.json. */
+export const scheduleOf = (s: Pick<Editable, "schedule">, phases: Phase[]) => s.schedule ?? defaultSchedule(phases);
+
+/** One task per room per production phase, placed on its workdays. */
+export function expand(schedule: PhaseEdit[], rooms: Room[]): ScheduledTask[] {
+  const tasks: ScheduledTask[] = [];
+  for (const phase of schedule) {
     const template = templateById(phase.template);
     if (!template) continue;
     const covered = rooms.filter((r) => r.id in phase.rooms);
     const title = template.title(covered);
     for (const room of covered) {
       tasks.push({
-        id: `${template.id}-${room.id}`,
+        id: `${phase.id}-${room.id}`,
+        phase: phase.id,
         room: room.id,
         step: template.id,
         title,
         categories: phase.rooms[room.id],
+        day: phase.start,
+        days: phase.days,
+        done: phase.done,
       });
     }
   }
   return tasks;
 }
+
+export const phaseTitle = (phase: PhaseEdit, rooms: Room[]) =>
+  templateById(phase.template)?.title(rooms.filter((r) => r.id in phase.rooms)) ?? phase.template;
 
 export function parseDate(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -37,53 +60,32 @@ export function isoDate(date: Date) {
   return date.toISOString().slice(0, 10);
 }
 
-function isWorkday(date: Date) {
+function isWorkday(date: Date, off: string[]) {
   const dow = date.getUTCDay();
-  return dow !== 0 && dow !== 6 && !holidays.has(isoDate(date));
+  const iso = isoDate(date);
+  return dow !== 0 && dow !== 6 && !holidays.has(iso) && !off.includes(iso);
 }
 
 /** Calendar date of a workday index counted from the start date. */
-export function workdayDate(startDate: string, index: number) {
-  const date = parseDate(startDate);
-  while (!isWorkday(date)) date.setUTCDate(date.getUTCDate() + 1);
+export function workdayDate(cal: Calendar, index: number) {
+  const date = parseDate(cal.start);
+  while (!isWorkday(date, cal.off)) date.setUTCDate(date.getUTCDate() + 1);
   for (let i = 0; i < index; ) {
     date.setUTCDate(date.getUTCDate() + 1);
-    if (isWorkday(date)) i++;
+    if (isWorkday(date, cal.off)) i++;
   }
   return date;
 }
 
 /** Workday index for a calendar date, clamped to the schedule. */
-export function workdayIndex(startDate: string, date: Date, last: number) {
+export function workdayIndex(cal: Calendar, date: Date, last: number) {
   for (let i = 0; i <= last; i++) {
-    if (workdayDate(startDate, i).getTime() >= date.getTime()) return i;
+    if (workdayDate(cal, i).getTime() >= date.getTime()) return i;
   }
   return last;
 }
 
-/** Places every task on a workday: trade order first, then OHI's changes. */
-export function schedule(tasks: Task[], state: ProjectState): ScheduledTask[] {
-  const startOf: Record<string, number> = {};
-  const lengthOf: Record<string, number> = {};
-  let day = 0;
-  for (const step of steps) {
-    if (!tasks.some((t) => t.step === step.id)) continue;
-    startOf[step.id] = day;
-    lengthOf[step.id] = step.days;
-    day += step.days;
-  }
-  return tasks.map((t) => {
-    const o = state.overrides[t.id] ?? {};
-    return {
-      ...t,
-      day: o.day ?? startOf[t.step] ?? 0,
-      days: lengthOf[t.step] ?? 1,
-      done: o.done ?? false,
-    };
-  });
-}
-
-export function lastDay(tasks: ScheduledTask[]) {
+export function lastDay(tasks: { day: number; days: number }[]) {
   return tasks.reduce((max, t) => Math.max(max, t.day + t.days - 1), 0);
 }
 
