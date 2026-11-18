@@ -25,11 +25,10 @@ import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
 import { lastDay, schedule, workdayDate, workdayIndex } from "@/lib/sequence";
 import { templateById } from "@/lib/templates";
+import { useView } from "@/lib/view";
 import type { Plan, ProjectState, Role, Room, ScheduledTask, Task } from "@/lib/types";
 
 const Scene = dynamic(() => import("@/components/plan/scene").then((m) => m.Scene), { ssr: false });
-
-type SheetName = "messages" | "changes" | "closeout" | "photos" | null;
 
 export function Huddle({
   slug,
@@ -51,11 +50,9 @@ export function Huddle({
   const last = lastDay(scheduled);
   const today = useToday(state.startDate, last);
   const [day, setDay] = useState(today);
-  const [selected, setSelected] = useState<string | null>(null);
-  const [focus, setFocus] = useState<string | null>(null);
+  const { view, open, back, home } = useView();
+  const { room: selected, focus, sheet, about: messageRoom } = view;
   const mainLevel = plan.levels.find((l) => l.stack === 0)?.id;
-  const [sheet, setSheet] = useState<SheetName>(null);
-  const [messageRoom, setMessageRoom] = useState<string | undefined>();
   const [layers, setLayers] = useState({ photos: true, messages: true });
   const [layersOpen, setLayersOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
@@ -65,13 +62,27 @@ export function Huddle({
   const reducedMotion = useReducedMotion();
   const compass = useRef<SVGSVGElement>(null);
 
-  useEffect(() => setDay(today), [today]);
+  useEffect(() => {
+    setDay(today);
+  }, [today]);
 
-  // Once the last workday has passed, the project opens on its closeout.
+  // Once the last workday has passed, the project opens on its closeout, once.
+  const shownCloseout = useRef(false);
   useEffect(() => {
     const end = workdayDate(state.startDate, last);
-    if (Date.now() > end.getTime() + 36 * 60 * 60 * 1000) setSheet("closeout");
-  }, [state.startDate, last]);
+    if (shownCloseout.current || Date.now() <= end.getTime() + 36 * 60 * 60 * 1000) return;
+    shownCloseout.current = true;
+    if (!sheet) open({ sheet: "closeout" });
+  }, [state.startDate, last, sheet, open]);
+
+  // Esc steps out of a picked room or a level in focus (sheets handle their own).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !sheet && (selected || focus)) back();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheet, selected, focus, back]);
 
   const looks = useMemo(() => roomLooks(plan.rooms, scheduled, day), [plan.rooms, scheduled, day]);
   const work = useMemo(() => dayWork(scheduled, day), [scheduled, day]);
@@ -92,10 +103,17 @@ export function Huddle({
     return () => clearTimeout(timer);
   }, [playing, day, last, speed]);
 
-  const pick = useCallback((room: string | null) => {
-    setSelected(room);
-    setCompact(true);
-  }, []);
+  const pick = useCallback(
+    (room: string | null) => {
+      setCompact(true);
+      if (room === selected) return;
+      if (room === null) back();
+      else open({ room }, selected !== null);
+    },
+    [selected, open, back],
+  );
+
+  const openSheet = (name: NonNullable<typeof sheet>, room: string | null = null) => open({ sheet: name, about: room });
 
   /** Work that covers most of the house gets one bubble instead of one per room. */
   const houseWork = useMemo(() => {
@@ -194,10 +212,7 @@ export function Huddle({
             type="button"
             className="pin glass"
             aria-label={`${c.messages} messages about ${room.name}`}
-            onClick={() => {
-              setMessageRoom(room.id);
-              setSheet("messages");
-            }}
+            onClick={() => openSheet("messages", room.id)}
           >
             <MessageCircle />
             {c.messages}
@@ -259,15 +274,12 @@ export function Huddle({
             type="button"
             className="tool"
             aria-label="Messages"
-            onClick={() => {
-              setMessageRoom(undefined);
-              setSheet("messages");
-            }}
+            onClick={() => openSheet("messages")}
           >
             <MessageCircle />
           </button>
           {hasPhotos && (
-            <button type="button" className="tool" aria-label="Photos" onClick={() => setSheet("photos")}>
+            <button type="button" className="tool" aria-label="Photos" onClick={() => openSheet("photos")}>
               <Images />
             </button>
           )}
@@ -277,13 +289,13 @@ export function Huddle({
               className="tool"
               aria-label={openChanges ? `Change orders, ${openChanges} waiting` : "Change orders"}
               data-badge={openChanges > 0}
-              onClick={() => setSheet("changes")}
+              onClick={() => openSheet("changes")}
             >
               <FileSignature />
             </button>
           )}
           {hasCloseout && (
-            <button type="button" className="tool" aria-label="Closeout" onClick={() => setSheet("closeout")}>
+            <button type="button" className="tool" aria-label="Closeout" onClick={() => openSheet("closeout")}>
               <ClipboardCheck />
             </button>
           )}
@@ -292,8 +304,7 @@ export function Huddle({
             className="tool"
             aria-label="Reset view"
             onClick={() => {
-              setSelected(null);
-              setFocus(null);
+              home();
               setResetKey((k) => k + 1);
             }}
           >
@@ -338,10 +349,7 @@ export function Huddle({
             type="button"
             className="level"
             aria-pressed={focus === l.id}
-            onClick={() => {
-              setSelected(null);
-              setFocus(focus === l.id ? null : l.id);
-            }}
+            onClick={() => (focus === l.id ? back() : open({ focus: l.id, room: null }, focus !== null))}
           >
             {l.name}
           </button>
@@ -357,7 +365,7 @@ export function Huddle({
           startDate={state.startDate}
           day={day}
           photos={state.photos[selectedRoom.id] ?? []}
-          onClose={() => setSelected(null)}
+          onClose={() => pick(null)}
         />
       )}
 
@@ -370,7 +378,7 @@ export function Huddle({
         playing={playing}
         speed={speed}
         onPlay={(on) => {
-          setSelected(null);
+          if (selected) back();
           if (on && day >= last) setDay(0);
           setPlaying(on);
         }}
@@ -378,7 +386,7 @@ export function Huddle({
         onChange={(d) => {
           setPlaying(false);
           setDay(d);
-          setSelected(null);
+          if (selected) back();
         }}
       />
 
@@ -387,18 +395,18 @@ export function Huddle({
           slug={slug}
           role={role}
           rooms={plan.rooms}
-          room={messageRoom}
+          room={messageRoom ?? undefined}
           state={state}
           act={act}
-          onClose={() => setSheet(null)}
+          onClose={back}
         />
       )}
       {sheet === "changes" && (
-        <ChangeOrders slug={slug} role={role} state={state} act={act} onClose={() => setSheet(null)} />
+        <ChangeOrders slug={slug} role={role} state={state} act={act} onClose={back} />
       )}
-      {sheet === "photos" && <PhotosSheet rooms={plan.rooms} state={state} onClose={() => setSheet(null)} />}
+      {sheet === "photos" && <PhotosSheet rooms={plan.rooms} state={state} onClose={back} />}
       {sheet === "closeout" && (
-        <CloseoutSheet rooms={plan.rooms} state={state} onClose={() => setSheet(null)} />
+        <CloseoutSheet rooms={plan.rooms} state={state} onClose={back} />
       )}
     </main>
   );

@@ -28,7 +28,8 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
         body: JSON.stringify({ code: value }),
       });
       if (res.ok) {
-        router.replace(`/p/${slug}`);
+        const next = new URLSearchParams(window.location.search).get("next");
+        router.replace(next?.startsWith(`/p/${slug}`) ? next : `/p/${slug}`);
         router.refresh();
         return;
       }

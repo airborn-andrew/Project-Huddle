@@ -34,7 +34,9 @@ export function Messages({
   const end = useRef<HTMLDivElement>(null);
   const roomName = (id?: string) => rooms.find((r) => r.id === id)?.name;
 
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [messages.length]);
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: "end" });
+  }, [messages.length]);
 
   const send = async () => {
     if (!body.trim() && !photos.length) return;
