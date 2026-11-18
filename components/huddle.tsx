@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { ArrowUp, ClipboardCheck, FileSignature, MessageCircle, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DayScrubber } from "@/components/day-scrubber";
+import { DayScrubber, type DayWork, type Speed } from "@/components/day-scrubber";
 import { RoomCard } from "@/components/room-card";
 import { Messages } from "@/components/messages";
 import { ChangeOrders } from "@/components/change-orders";
@@ -13,6 +13,7 @@ import { Connector } from "@/components/connector";
 import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
 import { lastDay, schedule, workdayDate, workdayIndex } from "@/lib/sequence";
+import { templateById } from "@/lib/templates";
 import type { Plan, ProjectState, Role, Room, ScheduledTask, Task } from "@/lib/types";
 
 const Scene = dynamic(() => import("@/components/plan/scene").then((m) => m.Scene), { ssr: false });
@@ -44,6 +45,8 @@ export function Huddle({
   const mainLevel = plan.levels.find((l) => l.stack === 0)?.id;
   const [sheet, setSheet] = useState<SheetName>(null);
   const [resetKey, setResetKey] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeed] = useState<Speed>(1);
   const [compact, setCompact] = useState(false);
   const reducedMotion = useReducedMotion();
   const compass = useRef<SVGSVGElement>(null);
@@ -57,6 +60,18 @@ export function Huddle({
   }, [state.startDate, last]);
 
   const looks = useMemo(() => roomLooks(plan.rooms, scheduled, day), [plan.rooms, scheduled, day]);
+  const work = useMemo(() => dayWork(scheduled, day), [scheduled, day]);
+
+  // Play moves through the schedule one workday at a time and stops on the last day.
+  useEffect(() => {
+    if (!playing) return;
+    if (day >= last) {
+      setPlaying(false);
+      return;
+    }
+    const timer = setTimeout(() => setDay((d) => Math.min(last, d + 1)), speed * 1000);
+    return () => clearTimeout(timer);
+  }, [playing, day, last, speed]);
 
   const pick = useCallback((room: string | null) => {
     setSelected(room);
@@ -234,7 +249,17 @@ export function Huddle({
         day={day}
         last={last}
         today={today}
+        work={work}
+        playing={playing}
+        speed={speed}
+        onPlay={(on) => {
+          setSelected(null);
+          if (on && day >= last) setDay(0);
+          setPlaying(on);
+        }}
+        onSpeed={setSpeed}
         onChange={(d) => {
+          setPlaying(false);
           setDay(d);
           setSelected(null);
         }}
@@ -254,6 +279,16 @@ export function Huddle({
 }
 
 const isOn = (t: ScheduledTask, day: number) => day >= t.day && day < t.day + t.days;
+
+/** The production phases running on a day, with which of their days it is. */
+function dayWork(tasks: ScheduledTask[], day: number): DayWork[] {
+  const out: DayWork[] = [];
+  for (const t of tasks) {
+    if (!isOn(t, day) || out.some((w) => w.step === t.step)) continue;
+    out.push({ step: t.step, title: t.title, expect: templateById(t.step)?.expect ?? "", part: day - t.day + 1, of: t.days });
+  }
+  return out;
+}
 
 /** Rooms sharing the same work on a day before it reads as whole-house work. */
 const HOUSE_WIDE = 5;
