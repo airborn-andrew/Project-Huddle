@@ -3,3 +3,4 @@ shapely
 trimesh
 numpy
 mapbox-earcut
+pypdf
