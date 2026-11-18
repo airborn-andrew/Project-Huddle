@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type SheetName = "messages" | "changes" | "closeout" | "photos";
+export type SheetName = "messages" | "changes" | "closeout" | "photos" | "team";
 
 /**
  * What is open on the plan, from the bottom layer up: a level in focus, a
@@ -11,7 +11,7 @@ export type SheetName = "messages" | "changes" | "closeout" | "photos";
 export type View = { focus: string | null; room: string | null; sheet: SheetName | null; about: string | null };
 
 const root: View = { focus: null, room: null, sheet: null, about: null };
-const sheets: SheetName[] = ["messages", "changes", "closeout", "photos"];
+const sheets: SheetName[] = ["messages", "changes", "closeout", "photos", "team"];
 
 /** ?level=main&room=kitchen&sheet=messages&about=kitchen */
 export function viewQuery(view: Partial<View>) {

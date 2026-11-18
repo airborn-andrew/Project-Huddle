@@ -12,6 +12,7 @@ import {
   MessageCircle,
   RotateCcw,
   SlidersHorizontal,
+  Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DayScrubber, type DayWork, type Speed } from "@/components/day-scrubber";
@@ -20,6 +21,7 @@ import { Messages } from "@/components/messages";
 import { ChangeOrders } from "@/components/change-orders";
 import { CloseoutSheet } from "@/components/closeout";
 import { Connector } from "@/components/connector";
+import { PeopleSheet } from "@/components/people";
 import { PhotosSheet } from "@/components/photos";
 import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
@@ -49,7 +51,8 @@ export function Huddle({
   // The homeowner view always shows the published project, for OHI too.
   const { state, act } = useProject(slug, initialState);
   const cal = useMemo(() => calendarOf(state), [state]);
-  const scheduled = useMemo(() => expand(scheduleOf(state, phases), plan.rooms), [state, phases, plan.rooms]);
+  const schedule = useMemo(() => scheduleOf(state, phases), [state, phases]);
+  const scheduled = useMemo(() => expand(schedule, plan.rooms), [schedule, plan.rooms]);
   const last = lastDay(scheduled);
   const today = useToday(cal, last);
   const [day, setDay] = useState(today);
@@ -285,6 +288,9 @@ export function Huddle({
           >
             <MessageCircle />
           </button>
+          <button type="button" className="tool" aria-label="Your team" onClick={() => openSheet("team")}>
+            <Users />
+          </button>
           {hasPhotos && (
             <button type="button" className="tool" aria-label="Photos" onClick={() => openSheet("photos")}>
               <Images />
@@ -415,6 +421,9 @@ export function Huddle({
         <ChangeOrders slug={slug} role={role} state={state} act={act} onClose={back} />
       )}
       {sheet === "photos" && <PhotosSheet rooms={plan.rooms} state={state} onClose={back} />}
+      {sheet === "team" && (
+        <PeopleSheet people={state.people} schedule={schedule} rooms={plan.rooms} cal={cal} onClose={back} />
+      )}
       {sheet === "closeout" && (
         <CloseoutSheet
           rooms={plan.rooms}
