@@ -503,6 +503,66 @@ button {
   color: #111;
 }
 
+.pins {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.pin {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 26px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 13px;
+  color: var(--ink);
+  font: 600 12px/1 var(--font);
+  font-variant-numeric: tabular-nums;
+}
+
+.pin svg {
+  width: 13px;
+  height: 13px;
+}
+
+.layers-menu {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 72px);
+  right: 16px;
+  z-index: 11;
+  display: grid;
+  min-width: 180px;
+  padding: 6px;
+  border-radius: var(--radius-small);
+}
+
+.layers-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--secondary);
+  font: var(--body);
+  text-align: left;
+}
+
+.layers-option svg {
+  width: 18px;
+  height: 18px;
+}
+
+.layers-option[aria-pressed="true"] {
+  color: var(--ink);
+}
+
 .connector {
   position: absolute;
   inset: 0;

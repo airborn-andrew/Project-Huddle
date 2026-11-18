@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowUp, ClipboardCheck, FileSignature, MessageCircle, RotateCcw, SlidersHorizontal } from "lucide-react";
+import { ArrowUp, Camera, ClipboardCheck, FileSignature, Layers, MessageCircle, RotateCcw, SlidersHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DayScrubber, type DayWork, type Speed } from "@/components/day-scrubber";
 import { RoomCard } from "@/components/room-card";
@@ -44,6 +44,9 @@ export function Huddle({
   const [focus, setFocus] = useState<string | null>(null);
   const mainLevel = plan.levels.find((l) => l.stack === 0)?.id;
   const [sheet, setSheet] = useState<SheetName>(null);
+  const [messageRoom, setMessageRoom] = useState<string | undefined>();
+  const [layers, setLayers] = useState({ photos: true, messages: true });
+  const [layersOpen, setLayersOpen] = useState(false);
   const [resetKey, setResetKey] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(1);
@@ -61,6 +64,11 @@ export function Huddle({
 
   const looks = useMemo(() => roomLooks(plan.rooms, scheduled, day), [plan.rooms, scheduled, day]);
   const work = useMemo(() => dayWork(scheduled, day), [scheduled, day]);
+
+  // The layers menu closes when anything else opens.
+  useEffect(() => {
+    if (sheet || selected) setLayersOpen(false);
+  }, [sheet, selected]);
 
   // Play moves through the schedule one workday at a time and stops on the last day.
   useEffect(() => {
@@ -136,6 +144,50 @@ export function Huddle({
     ) : null;
 
   const selectedRoom = plan.rooms.find((r) => r.id === selected);
+
+  /** Photo and message counts per room, for the pins on the plan. */
+  const pinCounts = useMemo(() => {
+    const counts: Record<string, { photos: number; messages: number }> = {};
+    for (const room of plan.rooms) {
+      const photos = (state.photos[room.id] ?? []).length;
+      const messages = state.messages.filter((m) => m.room === room.id).length;
+      if (photos || messages) counts[room.id] = { photos, messages };
+    }
+    return counts;
+  }, [plan.rooms, state.photos, state.messages]);
+  const hasPins = Object.keys(pinCounts).length > 0;
+
+  const pins = (room: Room) => {
+    const c = pinCounts[room.id];
+    if (!c || selected || (focus && room.level !== focus)) return null;
+    const showPhotos = layers.photos && c.photos > 0;
+    const showMessages = layers.messages && c.messages > 0;
+    if (!showPhotos && !showMessages) return null;
+    return (
+      <span className="pins">
+        {showPhotos && (
+          <button type="button" className="pin glass" aria-label={`${c.photos} photos in ${room.name}`} onClick={() => pick(room.id)}>
+            <Camera />
+            {c.photos}
+          </button>
+        )}
+        {showMessages && (
+          <button
+            type="button"
+            className="pin glass"
+            aria-label={`${c.messages} messages about ${room.name}`}
+            onClick={() => {
+              setMessageRoom(room.id);
+              setSheet("messages");
+            }}
+          >
+            <MessageCircle />
+            {c.messages}
+          </button>
+        )}
+      </span>
+    );
+  };
   const openChanges = state.changeOrders.filter((c) => !c.answer).length;
 
   return (
@@ -160,6 +212,7 @@ export function Huddle({
         {plan.rooms.map((r) => (
           <div key={r.id} id={`anchor-${r.id}`} className="anchor">
             {overlay(r)}
+            {pins(r)}
           </div>
         ))}
         <div id="anchor-house" className="anchor">
@@ -173,7 +226,26 @@ export function Huddle({
           {!compact && <p className="title-sub">OHI Construction</p>}
         </div>
         <nav className="tools glass" aria-label="Project">
-          <button type="button" className="tool" aria-label="Messages" onClick={() => setSheet("messages")}>
+          {hasPins && (
+            <button
+              type="button"
+              className="tool"
+              aria-label="Photos and messages on the plan"
+              aria-expanded={layersOpen}
+              onClick={() => setLayersOpen((o) => !o)}
+            >
+              <Layers />
+            </button>
+          )}
+          <button
+            type="button"
+            className="tool"
+            aria-label="Messages"
+            onClick={() => {
+              setMessageRoom(undefined);
+              setSheet("messages");
+            }}
+          >
             <MessageCircle />
           </button>
           <button
@@ -206,6 +278,23 @@ export function Huddle({
           )}
         </nav>
       </header>
+
+      {layersOpen && hasPins && (
+        <div className="layers-menu glass" role="group" aria-label="Show on the plan">
+          {(["photos", "messages"] as const).map((key) => (
+            <button
+              key={key}
+              type="button"
+              className="layers-option"
+              aria-pressed={layers[key]}
+              onClick={() => setLayers((l) => ({ ...l, [key]: !l[key] }))}
+            >
+              {key === "photos" ? <Camera /> : <MessageCircle />}
+              {key === "photos" ? "Photos" : "Messages"}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="compass" aria-hidden="true" data-hidden={selected !== null}>
         <span className="compass-n">
@@ -266,7 +355,15 @@ export function Huddle({
       />
 
       {sheet === "messages" && (
-        <Messages slug={slug} role={role} rooms={plan.rooms} state={state} act={act} onClose={() => setSheet(null)} />
+        <Messages
+          slug={slug}
+          role={role}
+          rooms={plan.rooms}
+          room={messageRoom}
+          state={state}
+          act={act}
+          onClose={() => setSheet(null)}
+        />
       )}
       {sheet === "changes" && (
         <ChangeOrders slug={slug} role={role} state={state} act={act} onClose={() => setSheet(null)} />

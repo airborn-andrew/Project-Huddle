@@ -12,6 +12,7 @@ export function Messages({
   slug,
   role,
   rooms,
+  room: only,
   state,
   act,
   onClose,
@@ -19,18 +20,21 @@ export function Messages({
   slug: string;
   role: Role;
   rooms: Room[];
+  /** Show only the messages about this room. */
+  room?: string;
   state: ProjectState;
   act: (action: string, body?: Record<string, unknown>) => Promise<boolean>;
   onClose: () => void;
 }) {
   const [body, setBody] = useState("");
   const [photos, setPhotos] = useState<Photo[]>([]);
-  const [room, setRoom] = useState("");
+  const [room, setRoom] = useState(only ?? "");
+  const messages = only ? state.messages.filter((m) => m.room === only) : state.messages;
   const [sending, setSending] = useState(false);
   const end = useRef<HTMLDivElement>(null);
   const roomName = (id?: string) => rooms.find((r) => r.id === id)?.name;
 
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [state.messages.length]);
+  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [messages.length]);
 
   const send = async () => {
     if (!body.trim() && !photos.length) return;
@@ -38,7 +42,7 @@ export function Messages({
     if (await act("message", { body, photos, room: room || undefined })) {
       setBody("");
       setPhotos([]);
-      setRoom("");
+      setRoom(only ?? "");
     }
     setSending(false);
   };
@@ -96,11 +100,11 @@ export function Messages({
   );
 
   return (
-    <Sheet title="Messages" onClose={onClose} footer={footer}>
+    <Sheet title={only ? `Messages · ${roomName(only)}` : "Messages"} onClose={onClose} footer={footer}>
       <div className="thread">
-        {state.messages.length === 0 && <p className="empty">No messages yet</p>}
-        {state.messages.map((m, i) => {
-          const prev = state.messages[i - 1];
+        {messages.length === 0 && <p className="empty">No messages yet</p>}
+        {messages.map((m, i) => {
+          const prev = messages[i - 1];
           const gap = !prev || +new Date(m.at) - +new Date(prev.at) > 30 * 60 * 1000;
           return (
             <div key={m.id} style={{ display: "contents" }}>
@@ -119,7 +123,7 @@ export function Messages({
                   </div>
                 )}
               </div>
-              {m.from !== role && (!state.messages[i + 1] || state.messages[i + 1].from === role) && (
+              {m.from !== role && (!messages[i + 1] || messages[i + 1].from === role) && (
                 <p className="msg-meta" style={{ textAlign: "left", margin: "0 0 4px 6px" }}>
                   {m.from === "ohi" ? "OHI" : "Homeowner"}
                 </p>
