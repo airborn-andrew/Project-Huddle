@@ -938,6 +938,13 @@ textarea.field {
   background: var(--ink);
 }
 
+.lock-wait {
+  margin: -24px 0 24px;
+  color: var(--secondary);
+  font: var(--footnote);
+  text-align: center;
+}
+
 .keypad {
   display: grid;
   grid-template-columns: repeat(3, 78px);

@@ -28,7 +28,13 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
    ```
 
 4. Write `data/<slug>/tasks.json` from the estimate scope. Each task is one room and one kind of work (`Insulation`, `Cabinets`, `Appliances`, `Fixtures`, `Paint`, `Flooring`, `Doors`, `Baseboard`, `Clean`) placed in a step from `lib/sequence.ts`.
-5. Add the project to `HUDDLE_PROJECTS` in Vercel and redeploy.
+5. Get the homeowner code from the scope PDF. It is the house number from the property address, padded with leading zeros to six digits (10305 becomes 010305):
+
+   ```
+   python pipeline/scope.py <scope.pdf>
+   ```
+
+6. Add the project to `HUDDLE_PROJECTS` in Vercel, with that homeowner code and an OHI code, and redeploy.
 
 The project link is `/p/<slug>`.
 
@@ -36,7 +42,7 @@ The project link is `/p/<slug>`.
 
 | Name | Value |
 | --- | --- |
-| `HUDDLE_PROJECTS` | `{"<slug>": {"name": "...", "home": "<6-digit homeowner code>", "ohi": "<6-digit OHI code>"}}` |
+| `HUDDLE_PROJECTS` | `{"<slug>": {"name": "...", "home": "<house number, six digits>", "ohi": "<6-digit OHI code>"}}` |
 | `HUDDLE_SECRET` | Any long random string; signs the access cookie |
 | `BLOB_READ_WRITE_TOKEN` | Added by connecting a Vercel Blob store to the project |
 
@@ -48,5 +54,7 @@ Names, codes and customer details stay in these variables and in Blob, never in 
 npm install
 HUDDLE_PROJECTS='{"k7m2qx": {"name": "McClure Residence", "home": "111111", "ohi": "222222"}}' HUDDLE_SECRET=dev npm run dev
 ```
+
+After five wrong codes in a row, a device waits 15 minutes before it can try again.
 
 `npm run check` runs lint, typecheck and build, the same as CI.

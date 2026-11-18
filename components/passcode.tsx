@@ -17,6 +17,7 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
   }, []);
   const [shake, setShake] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [lockedMinutes, setLockedMinutes] = useState(0);
 
   const submit = useCallback(
     async (value: string) => {
@@ -31,6 +32,8 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
         router.refresh();
         return;
       }
+      const { minutes = 0 } = (await res.json().catch(() => ({}))) as { minutes?: number };
+      setLockedMinutes(minutes);
       setBusy(false);
       setShake(true);
       setTimeout(() => {
@@ -43,15 +46,21 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
 
   const press = useCallback(
     (digit: string) => {
-      if (busy || codeRef.current.length >= LENGTH) return;
+      if (busy || lockedMinutes || codeRef.current.length >= LENGTH) return;
       const next = codeRef.current + digit;
       setCode(next);
       if (next.length === LENGTH) submit(next);
     },
-    [busy, setCode, submit],
+    [busy, lockedMinutes, setCode, submit],
   );
 
   const back = useCallback(() => setCode(codeRef.current.slice(0, -1)), [setCode]);
+
+  useEffect(() => {
+    if (!lockedMinutes) return;
+    const timer = setTimeout(() => setLockedMinutes(0), lockedMinutes * 60_000);
+    return () => clearTimeout(timer);
+  }, [lockedMinutes]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,6 +80,11 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
             <span key={i} className="dot" data-filled={i < code.length} />
           ))}
         </div>
+        {lockedMinutes > 0 && (
+          <p className="lock-wait" role="status">
+            Too many tries. Try again in {lockedMinutes} {lockedMinutes === 1 ? "minute" : "minutes"}.
+          </p>
+        )}
         <div className="keypad">
           {keys.map((k) => (
             <button key={k} type="button" className="key" onClick={() => press(k)}>
