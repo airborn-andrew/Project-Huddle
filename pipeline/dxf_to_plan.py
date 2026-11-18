@@ -1,15 +1,19 @@
-"""Convert an Xactimate Sketch DXF export into plan.json and a .glb model.
+"""Build a project from its Xactimate sketch DXF and scope PDF.
 
 Usage:
-    python pipeline/dxf_to_plan.py <slug> [--check pipeline/input/<slug>.areas.json]
+    python pipeline/dxf_to_plan.py <slug>
 
-Reads  pipeline/input/<slug>.dxf  (one flat layer of LINE and TEXT, 1 unit = 1 inch)
-Writes data/<slug>/plan.json and public/models/<slug>.glb
+Reads  pipeline/input/<slug>/  the sketch DXF (one flat layer of LINE and TEXT,
+       1 unit = 1 inch) and the scope PDF, both exported from the same estimate.
+       The input folder is never committed.
+Writes data/<slug>/plan.json, data/<slug>/days.json and public/models/<slug>.glb
 
 Walls are the 4 in face pairs. Openings are found from the jamb lines that
 cross a wall. Rooms are the spaces the walls enclose, named by the room label
-inside each one. With --check, each room's floor area is compared with the estimate and
-printed, which also guides how open-plan rooms are divided.
+inside each one; the scope's floor areas guide how open-plan rooms are divided.
+
+The build stops when the sketch and the scope disagree (room names, or a floor
+area off by more than 0.5%) or when a line item fits no day rule.
 """
 
 from __future__ import annotations
@@ -31,6 +35,10 @@ from shapely.geometry.polygon import orient
 from shapely.ops import polygonize, unary_union
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "pipeline"))
+
+from day_rules import build_days  # noqa: E402
+from scope import read_scope  # noqa: E402
 
 WALL_THICKNESS = 4.0  # in
 WALL_HEIGHT = 96.0  # in
@@ -316,8 +324,19 @@ def extend(line: LineString, by: float) -> LineString:
     return LineString([(x0 - v[0], y0 - v[1]), (x1 + v[0], y1 + v[1])])
 
 
-def build(slug: str, check: Path | None):
-    segs, texts = read_dxf(ROOT / "pipeline" / "input" / f"{slug}.dxf")
+def inputs(slug: str):
+    folder = ROOT / "pipeline" / "input" / slug
+    dxfs = sorted(folder.glob("*.dxf"))
+    pdfs = sorted(folder.glob("*.pdf"))
+    if len(dxfs) != 1 or len(pdfs) != 1:
+        sys.exit(f"Put one sketch .dxf and one scope .pdf in {folder.relative_to(ROOT)}")
+    return dxfs[0], pdfs[0]
+
+
+def build(slug: str):
+    dxf_path, scope_path = inputs(slug)
+    scope = read_scope(scope_path)
+    segs, texts = read_dxf(dxf_path)
     kept, dim_lines = classify(segs, texts)
 
     bands = []
@@ -346,7 +365,7 @@ def build(slug: str, check: Path | None):
     room_labels = [t for t in texts if abs(t["height"] - ROOM_TEXT_HEIGHT) < 0.2 and "(" not in t["text"]]
     fixture_labels = [t for t in texts if abs(t["height"] - ROOM_TEXT_HEIGHT) < 0.2 and "(" in t["text"]]
 
-    targets = json.loads(check.read_text()) if check else {}
+    targets = {r.name: r.floor_sf for r in scope.rooms if r.floor_sf}
     rooms = []
     for hole in holes:
         labels = [t for t in room_labels if hole.contains(Point(t["x"], t["y"]))]
@@ -385,26 +404,53 @@ def build(slug: str, check: Path | None):
         room = next((r["name"] for r in rooms if r["poly"].buffer(1).contains(poly.centroid)), None)
         fixtures.append({"label": label, "kind": kind, "poly": poly, "room": room})
 
-    # Area check against the estimate.
-    report = []
-    if check:
-        failed = False
-        for r in rooms:
-            sf = r["poly"].area / 144
-            want = targets.get(r["name"])
-            if want is None:
-                continue
-            miss = abs(sf - want) / want
-            ok = miss <= AREA_TOLERANCE
-            failed |= not ok
-            report.append(f"{'ok  ' if ok else 'FAIL'} {r['name']:<14} {sf:8.2f} SF  estimate {want:8.2f}  ({miss * 100:.2f}%)")
-        print("\n".join(report))
-        total = sum(r["poly"].area for r in rooms) / 144
-        print(f"     {'Main Level':<14} {total:8.2f} SF")
-        if failed:
-            print("note: some room areas differ from the estimate (open-plan dividers are approximate)")
-
+    check_against_scope(rooms, scope)
+    write_days(slug, scope, [r["name"] for r in rooms])
+    print(f"Homeowner code: {scope.code}")
     write_outputs(slug, footprint, solid, rooms, open_list, fixtures)
+
+
+def check_against_scope(rooms, scope):
+    """Stop the build when the sketch and the scope do not describe the same rooms."""
+    sketch = {r["name"] for r in rooms}
+    listed = {r.name for r in scope.rooms}
+    problems = []
+    if sketch - listed:
+        problems.append("In the sketch but not the scope: " + ", ".join(sorted(sketch - listed)))
+    if listed - sketch:
+        problems.append("In the scope but not the sketch: " + ", ".join(sorted(listed - sketch)))
+    for r in rooms:
+        want = next((g.floor_sf for g in scope.rooms if g.name == r["name"]), None)
+        if not want:
+            continue
+        sf = r["poly"].area / 144
+        miss = abs(sf - want) / want
+        print(f"{'ok  ' if miss <= AREA_TOLERANCE else 'FAIL'} {r['name']:<14} {sf:8.2f} SF  scope {want:8.2f}  ({miss * 100:.2f}%)")
+        if miss > AREA_TOLERANCE:
+            problems.append(f"{r['name']} floor is {sf:.2f} SF in the sketch and {want:.2f} SF in the scope")
+    if problems:
+        sys.exit("The sketch and the scope disagree:\n  " + "\n  ".join(problems))
+
+
+def write_days(slug: str, scope, room_names: list[str]):
+    """Production days from the scope's line items. The line items are not kept."""
+    all_rooms = [slug_id(n) for n in room_names]
+    groups = []
+    for g in scope.groups:
+        if g.is_room:
+            groups.append((slug_id(g.name), g.items))
+        elif slug_id(g.name) == "crawlspace":
+            groups.append(("crawlspace", g.items))
+        else:
+            groups.append((None, g.items))
+    phases, unmatched = build_days(groups, all_rooms)
+    if unmatched:
+        lines = [f"{room}: {item}" for room, item in unmatched]
+        sys.exit("Line items with no day rule (add one in pipeline/day_rules.py):\n  " + "\n  ".join(lines))
+    out = ROOT / "data" / slug / "days.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({"phases": phases}, indent=2) + "\n")
+    print(f"wrote {out.relative_to(ROOT)} ({len(phases)} production phases)")
 
 
 # ---------- output ----------
@@ -548,6 +594,5 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures):
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("slug")
-    ap.add_argument("--check", type=Path)
     args = ap.parse_args()
-    build(args.slug, args.check)
+    build(args.slug)

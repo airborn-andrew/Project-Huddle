@@ -25,12 +25,20 @@ export type Plan = {
   rooms: Room[];
 };
 
+/** One production phase from data/<slug>/days.json: a template and the rooms it covers. */
+export type Phase = {
+  template: string;
+  /** Room id to the parts of the model the phase works on in that room. */
+  rooms: Record<string, Category[]>;
+};
+
+/** One room's share of a production phase. `step` is the template id. */
 export type Task = {
   id: string;
   room: string;
-  category: Category;
   step: string;
   title: string;
+  categories: Category[];
 };
 
 /** A task placed on the calendar. `day` is a workday index from the start date. */

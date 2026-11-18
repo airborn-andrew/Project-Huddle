@@ -1,61 +1,32 @@
-import type { Category, ProjectState, ScheduledTask, Task } from "@/lib/types";
+import { templateById, templates } from "@/lib/templates";
+import type { Phase, ProjectState, Room, ScheduledTask, Task } from "@/lib/types";
 
-/** Trade order and default length in workdays. The schedule is drafted from this. */
-export const steps: { id: string; name: string; days: number }[] = [
-  { id: "insulation", name: "Crawlspace insulation", days: 1 },
-  { id: "tearout", name: "Tear-out", days: 1 },
-  { id: "cabinets", name: "Cabinet rebuild", days: 2 },
-  { id: "paint", name: "Wall paint", days: 2 },
-  { id: "flooring", name: "Flooring", days: 3 },
-  { id: "reset", name: "Cabinets, fixtures and appliances reset", days: 1 },
-  { id: "doors", name: "Doors", days: 1 },
-  { id: "baseboard", name: "Baseboard", days: 1 },
-  { id: "trim", name: "Trim and door paint", days: 1 },
-  { id: "clean", name: "Final clean", days: 1 },
-];
+/** Trade order and default length in workdays, from the day templates. */
+export const steps = templates.map((t) => ({ id: t.id, days: t.days }));
 
 /** Days the crew is off besides weekends. */
 export const holidays = new Set(["2026-11-26", "2026-11-27", "2026-12-24", "2026-12-25", "2027-01-01"]);
 
-/** What the homeowner reads in a room card for each kind of work. */
-export const categoryCopy: Record<Category, { what: string; expect: string }> = {
-  Insulation: {
-    what: "New insulation goes up under the floor, with a vapor barrier over the ground.",
-    expect: "The crew works from the crawlspace hatch. Nothing inside the house needs to move.",
-  },
-  Cabinets: {
-    what: "Cabinet work in the kitchen.",
-    expect: "Counters and cabinets need to be empty.",
-  },
-  Appliances: {
-    what: "Appliances are moved so the floor and cabinets can be worked on.",
-    expect: "Plan meals around a kitchen without a range or refrigerator for these days.",
-  },
-  Fixtures: {
-    what: "Plumbing fixtures are taken out or put back.",
-    expect: "The temporary toilet outside stays available the whole time.",
-  },
-  Paint: {
-    what: "Painting in this room.",
-    expect: "Keep the room clear and ventilated. Paint is dry to the touch the same day.",
-  },
-  Flooring: {
-    what: "New plank flooring goes down.",
-    expect: "The room needs to be empty, including closets and anything under beds.",
-  },
-  Doors: {
-    what: "Doors are hung and adjusted.",
-    expect: "The doorway is open for part of the day.",
-  },
-  Baseboard: {
-    what: "Baseboard and trim are installed along the floor.",
-    expect: "Keep furniture a couple of feet off the walls.",
-  },
-  Clean: {
-    what: "A final clean of the house.",
-    expect: "Your walkthrough with OHI follows.",
-  },
-};
+/** One task per room per production phase, titled by the phase's template. */
+export function buildTasks(phases: Phase[], rooms: Room[]): Task[] {
+  const tasks: Task[] = [];
+  for (const phase of phases) {
+    const template = templateById(phase.template);
+    if (!template) continue;
+    const covered = rooms.filter((r) => r.id in phase.rooms);
+    const title = template.title(covered);
+    for (const room of covered) {
+      tasks.push({
+        id: `${template.id}-${room.id}`,
+        room: room.id,
+        step: template.id,
+        title,
+        categories: phase.rooms[room.id],
+      });
+    }
+  }
+  return tasks;
+}
 
 export function parseDate(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);

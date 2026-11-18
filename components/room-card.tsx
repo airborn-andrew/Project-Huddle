@@ -2,10 +2,11 @@
 
 import { X } from "lucide-react";
 import { useState } from "react";
-import { categoryCopy, dayFormat, workdayDate } from "@/lib/sequence";
+import { dayFormat, workdayDate } from "@/lib/sequence";
+import { templateById } from "@/lib/templates";
 import type { Photo, Room, ScheduledTask } from "@/lib/types";
 
-/** The detail card for the picked room: every piece of work in it and its day. */
+/** The detail card for the picked room: each production day that works in it. */
 export function RoomCard({
   room,
   tasks,
@@ -55,8 +56,8 @@ export function RoomCard({
             </button>
             {open === t.id && (
               <div className="row-detail">
-                <p>{categoryCopy[t.category].what}</p>
-                <p>{categoryCopy[t.category].expect}</p>
+                <p>{templateById(t.step)?.what}</p>
+                <p>{templateById(t.step)?.expect}</p>
               </div>
             )}
           </li>
