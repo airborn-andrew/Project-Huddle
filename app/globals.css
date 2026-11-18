@@ -162,7 +162,7 @@ button {
 .compass {
   position: absolute;
   right: 22px;
-  bottom: calc(env(safe-area-inset-bottom) + 132px);
+  bottom: calc(env(safe-area-inset-bottom) + 124px + var(--levels-height, 72px));
   z-index: 5;
   display: grid;
   justify-items: end;
@@ -189,8 +189,33 @@ button {
   transition: transform 80ms linear;
 }
 
-.compass-level {
-  margin-top: 10px;
+.levels {
+  position: absolute;
+  right: 14px;
+  bottom: calc(env(safe-area-inset-bottom) + 124px);
+  z-index: 5;
+  display: grid;
+  justify-items: end;
+  transition: opacity 200ms ease;
+}
+
+.levels[data-hidden="true"] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.level {
+  padding: 6px 8px;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font: var(--subhead);
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  transition: color 150ms ease;
+}
+
+.level[aria-pressed="true"] {
+  color: var(--ink);
   font: var(--headline);
 }
 
