@@ -1,8 +1,8 @@
 import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { cookieName, readToken } from "@/lib/access";
+import { roleOn } from "@/lib/access";
 import { notifyOhi } from "@/lib/notify";
-import { projectConfig, projectData } from "@/lib/projects";
+import { getProject } from "@/lib/projects";
 import { calendarOf, dayFormat, defaultSchedule, phaseTitle, workdayDate } from "@/lib/sequence";
 import { editable, forRole, readState, updateState } from "@/lib/state";
 import { templateById } from "@/lib/templates";
@@ -11,7 +11,7 @@ import type { Category, Editable, Phase, Photo, Plan, ProjectState, Role } from 
 type Params = { params: Promise<{ slug: string }> };
 
 async function roleFor(slug: string): Promise<Role | null> {
-  return readToken(slug, (await cookies()).get(cookieName(slug))?.value);
+  return roleOn(slug, await cookies());
 }
 
 export async function GET(_: Request, { params }: Params) {
@@ -282,18 +282,21 @@ export async function POST(request: Request, { params }: Params) {
 
   if (shared[action] || (role === "home" && home[action])) {
     const run = shared[action] ?? home[action];
-    const before = await readState(slug);
-    const state = await updateState(slug, (s) => run(s, body, role));
+    let before!: ProjectState;
+    const state = await updateState(slug, (s) => {
+      before = structuredClone(s);
+      run(s, body, role);
+    });
     if (role === "home") {
       const update = homeownerUpdate(action, before, state, new URL(request.url).origin, slug);
-      const project = projectConfig(slug)?.name ?? "Project Huddle";
+      const project = (await getProject(slug))?.name ?? "Project Huddle";
       if (update) after(() => notifyOhi({ project, ...update }).catch((e) => console.error(e)));
     }
     return NextResponse.json(forRole(state, role));
   }
   if (role !== "ohi") return NextResponse.json({ error: "not allowed" }, { status: 403 });
 
-  const data = await projectData(slug);
+  const data = await getProject(slug);
   if (!data) return NextResponse.json({ error: "no project" }, { status: 404 });
 
   const state = await updateState(slug, (s) => {

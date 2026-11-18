@@ -1,10 +1,13 @@
-import { del, list, put } from "@vercel/blob";
+import { put } from "@vercel/blob";
+import { db } from "@/lib/db";
 import type { Editable, ProjectState, Role } from "@/lib/types";
 
 /**
- * Each project's state is one JSON file in Vercel Blob. Every save writes a
- * new file with a random name and removes the old one, so the address is never
- * guessable. Without a Blob token (local development) state stays in memory.
+ * Each project's state is one row in the project_states table. Every save
+ * checks the row's version, so when two saves land at once (a homeowner's
+ * message while OHI pushes) the later one reruns on fresh state instead of
+ * overwriting the other. Without a database (local development) state stays
+ * in memory. Photos stay in Vercel Blob.
  */
 const memory = new Map<string, ProjectState>();
 const hasBlob = () => Boolean(process.env.BLOB_READ_WRITE_TOKEN);
@@ -23,6 +26,7 @@ export const defaultState = (): ProjectState => ({
   draft: null,
   undo: [],
   log: [],
+  ohiSeen: null,
 });
 
 const editableKeys = [
@@ -42,43 +46,75 @@ export function editable(s: Editable): Editable {
   return structuredClone(Object.fromEntries(editableKeys.map((k) => [k, s[k]])) as Editable);
 }
 
-/** What the homeowner receives: the published project, never OHI's draft or log. */
+/** What the homeowner receives: the published project, never OHI's draft, log or read marker. */
 export function forRole(s: ProjectState, role: Role): ProjectState {
-  return role === "ohi" ? s : { ...s, draft: null, undo: [], log: [] };
+  return role === "ohi" ? s : { ...s, draft: null, undo: [], log: [], ohiSeen: null };
 }
 
-const prefix = (slug: string) => `projects/${slug}/state`;
+const withDefaults = (state: Partial<ProjectState>): ProjectState => ({ ...defaultState(), ...state });
 
-export async function readState(slug: string): Promise<ProjectState> {
-  if (!hasBlob()) return memory.get(slug) ?? defaultState();
-  const { blobs } = await list({ prefix: prefix(slug) });
-  const latest = blobs.sort((a, b) => +new Date(b.uploadedAt) - +new Date(a.uploadedAt))[0];
-  if (!latest) return defaultState();
-  const res = await fetch(`${latest.url}?v=${+new Date(latest.uploadedAt)}`, { cache: "no-store" });
-  return { ...defaultState(), ...((await res.json()) as ProjectState) };
+async function readRow(slug: string): Promise<{ state: ProjectState; version: number | null }> {
+  const client = db();
+  if (!client) return { state: structuredClone(memory.get(slug) ?? defaultState()), version: null };
+  const { data, error } = await client
+    .from("project_states")
+    .select("state, version")
+    .eq("slug", slug)
+    .maybeSingle<{ state: ProjectState; version: number }>();
+  if (error) throw error;
+  return data ? { state: withDefaults(data.state), version: data.version } : { state: defaultState(), version: null };
 }
 
-export async function writeState(slug: string, state: ProjectState) {
-  if (!hasBlob()) {
+/** Saves when the row is still at `version` (null: no row yet). Returns false when another save got there first. */
+async function writeRow(slug: string, state: ProjectState, version: number | null) {
+  const client = db();
+  if (!client) {
     memory.set(slug, state);
-    return;
+    return true;
   }
-  const { blobs } = await list({ prefix: prefix(slug) });
-  await put(`${prefix(slug)}.json`, JSON.stringify(state), {
-    access: "public",
-    addRandomSuffix: true,
-    contentType: "application/json",
-    cacheControlMaxAge: 60,
-  });
-  if (blobs.length) await del(blobs.map((b) => b.url));
+  const updated_at = new Date().toISOString();
+  if (version === null) {
+    const { error } = await client.from("project_states").insert({ slug, state, version: 1, updated_at });
+    if (error?.code === "23505") return false;
+    if (error) throw error;
+    return true;
+  }
+  const { data, error } = await client
+    .from("project_states")
+    .update({ state, version: version + 1, updated_at })
+    .eq("slug", slug)
+    .eq("version", version)
+    .select("version");
+  if (error) throw error;
+  return data.length === 1;
 }
 
-/** Read, change and save in one step. */
+export async function readState(slug: string) {
+  return (await readRow(slug)).state;
+}
+
+/** Several projects' states at once, for the project list. */
+export async function readStates(slugs: string[]): Promise<Map<string, ProjectState>> {
+  const client = db();
+  if (!client) return new Map(slugs.map((slug) => [slug, structuredClone(memory.get(slug) ?? defaultState())]));
+  const { data, error } = await client
+    .from("project_states")
+    .select("slug, state")
+    .in("slug", slugs)
+    .returns<{ slug: string; state: ProjectState }[]>();
+  if (error) throw error;
+  const found = new Map(data.map((r) => [r.slug, withDefaults(r.state)]));
+  return new Map(slugs.map((slug) => [slug, found.get(slug) ?? defaultState()]));
+}
+
+/** Read, change and save in one step. `change` reruns on fresh state if another save lands first. */
 export async function updateState(slug: string, change: (s: ProjectState) => void) {
-  const state = await readState(slug);
-  change(state);
-  await writeState(slug, state);
-  return state;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { state, version } = await readRow(slug);
+    change(state);
+    if (await writeRow(slug, state, version)) return state;
+  }
+  throw new Error(`Project ${slug} is busy; try again`);
 }
 
 export async function savePhoto(slug: string, file: File) {

@@ -1574,3 +1574,100 @@ textarea.field {
     background: #1c1c1e;
   }
 }
+
+/* ---------- OHI project list ---------- */
+
+.projects {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: calc(env(safe-area-inset-top) + 20px) 16px calc(env(safe-area-inset-bottom) + 40px);
+}
+
+.projects-title {
+  margin: 8px 4px 16px;
+  font: var(--large-title);
+}
+
+.projects-empty {
+  margin: 40px 4px;
+  color: var(--secondary);
+  font: var(--subhead);
+}
+
+.project-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 64px;
+  padding: 10px 0;
+  border-top: 0.5px solid var(--hairline);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.project-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.project-dot[data-on="true"] {
+  background: var(--ink);
+}
+
+.project-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.project-name {
+  font: var(--headline);
+}
+
+.project-where {
+  overflow: hidden;
+  color: var(--secondary);
+  font: var(--subhead);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-status {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--fill-strong);
+  color: var(--secondary);
+  font: var(--footnote);
+}
+
+.project-status[data-status="live"] {
+  background: var(--ink);
+  color: #111;
+}
+
+.project-chevron {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--tertiary);
+}
+
+.edit-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 8px -6px;
+  min-height: 44px;
+  color: var(--ink);
+  font: var(--body);
+  text-decoration: none;
+}
+
+.edit-up svg {
+  width: 22px;
+  height: 22px;
+}

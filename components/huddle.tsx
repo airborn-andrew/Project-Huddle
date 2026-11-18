@@ -39,6 +39,7 @@ export function Huddle({
   role,
   plan,
   phases,
+  model,
   initialState,
 }: {
   slug: string;
@@ -46,6 +47,8 @@ export function Huddle({
   role: Role;
   plan: Plan;
   phases: Phase[];
+  /** Address of the 3D model. */
+  model: string;
   initialState: ProjectState;
 }) {
   // The homeowner view always shows the published project, for OHI too.
@@ -236,7 +239,7 @@ export function Huddle({
   return (
     <main className="huddle" style={{ "--levels-height": `${plan.levels.length * 32 + 8}px` } as React.CSSProperties}>
       <Scene
-        model={`/models/${slug}.glb`}
+        model={model}
         levels={plan.levels}
         focus={focus}
         rooms={plan.rooms}

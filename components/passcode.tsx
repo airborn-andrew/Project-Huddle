@@ -6,7 +6,11 @@ import { useRouter } from "next/navigation";
 const LENGTH = 6;
 const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9"];
 
-export function Passcode({ slug, name }: { slug: string; name: string }) {
+/**
+ * The six-digit passcode screen. After the right code it goes to `next` from
+ * the address when that is under `home`, or to `home`.
+ */
+export function Passcode({ title, endpoint, home }: { title: string; endpoint: string; home: string }) {
   const router = useRouter();
   const [code, setCodeState] = useState("");
   // A ref keeps fast typing from reading a stale value between renders.
@@ -22,14 +26,14 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
   const submit = useCallback(
     async (value: string) => {
       setBusy(true);
-      const res = await fetch(`/api/p/${slug}/unlock`, {
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: value }),
       });
       if (res.ok) {
         const next = new URLSearchParams(window.location.search).get("next");
-        router.replace(next?.startsWith(`/p/${slug}`) ? next : `/p/${slug}`);
+        router.replace(next?.startsWith(home) ? next : home);
         router.refresh();
         return;
       }
@@ -42,7 +46,7 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
         setCode("");
       }, 420);
     },
-    [router, slug, setCode],
+    [router, endpoint, home, setCode],
   );
 
   const press = useCallback(
@@ -75,7 +79,7 @@ export function Passcode({ slug, name }: { slug: string; name: string }) {
   return (
     <main className="lock">
       <div className="lock-inner">
-        <h1 className="lock-title">{name}</h1>
+        <h1 className="lock-title">{title}</h1>
         <div className="dots" data-shake={shake} aria-label={`${code.length} of ${LENGTH} digits entered`}>
           {Array.from({ length: LENGTH }, (_, i) => (
             <span key={i} className="dot" data-filled={i < code.length} />

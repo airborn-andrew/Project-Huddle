@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Minus, Plus, Undo2, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Minus, Plus, Undo2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { PhotoButton } from "@/components/photo-button";
 import { useProject } from "@/lib/client";
@@ -77,6 +77,10 @@ export function Editor({
 
   return (
     <main className="edit">
+      <Link className="edit-up" href="/ohi">
+        <ChevronLeft />
+        Projects
+      </Link>
       <div className="edit-head">
         <h1 className="title" style={{ fontSize: 28 }}>
           {name}

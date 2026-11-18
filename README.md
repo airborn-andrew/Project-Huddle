@@ -7,13 +7,13 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | Path | What it is |
 | --- | --- |
 | `app/p/[slug]` | The plan screen, the passcode screen (`unlock`) and OHI's edit view (`edit`) |
-| `app/api/p/[slug]` | Project state, photo uploads and unlock |
+| `app/ohi` | OHI's project list and its passcode screen |
+| `app/api/p/[slug]`, `app/api/ohi` | Project state, photo uploads and unlock |
 | `components/plan/scene.tsx` | The 3D plan: model, materials by work state, camera, room labels |
 | `lib/templates.ts` | Production day templates: title, what happens, what to expect, default days |
 | `lib/sequence.ts` | Holidays, workday dates, and turning production days into the schedule |
-| `lib/state.ts` | Project state in Vercel Blob (in memory when no Blob token is set): the published project, OHI's draft, undo history and change log |
-| `data/<slug>/plan.json` | Rooms from the sketch |
-| `data/<slug>/days.json` | The project's production days: each template and the rooms it covers |
+| `lib/projects.ts`, `lib/state.ts` | Projects and their state in Supabase: the published project, OHI's draft, undo history and change log. Photos are in Vercel Blob |
+| `supabase/migrations` | The database tables |
 | `public/models/<slug>.glb` | The 3D model from the sketch, every level stacked; nodes are named `<level>__<room>__<part>` |
 | `pipeline/dxf_to_plan.py` | Sketch DXF and scope PDF to `plan.json`, `days.json` and `.glb` |
 | `pipeline/scope.py`, `pipeline/day_rules.py` | Reading the scope, and the rules that turn its line items into production days |
@@ -31,7 +31,7 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
    ```
 
    It writes `data/<slug>/plan.json`, `data/<slug>/days.json` and `public/models/<slug>.glb`, and prints the homeowner code. The build stops when the sketch and the scope disagree (room names, or a room's floor area off by more than 0.5%) or when a line item matches no rule in `pipeline/day_rules.py`.
-3. Add the project to `HUDDLE_PROJECTS` in Vercel, with the printed homeowner code and an OHI code, and redeploy.
+3. Add a row to the `projects` table: the project name, the printed homeowner code, `plan.json` as `plan`, the `phases` list from `days.json`, and the model's address as `model`. It starts as a draft.
 
 The homeowner code is the house number from the scope's property address, padded with leading zeros to six digits (10305 becomes 010305). `python pipeline/scope.py <scope.pdf>` prints it, along with every room and line item the scope lists.
 
@@ -41,7 +41,7 @@ The sketch sets where each door and window is and how wide. The scope sets wheth
 
 ### Production days
 
-The homeowner sees production days, never line items. Each line item in the scope matches one rule in `pipeline/day_rules.py`, which names the day templates it belongs to; `days.json` keeps only the templates and the rooms each one covers. The words the homeowner reads for each template live in `lib/templates.ts`. Every job ends with a final walkthrough day.
+The homeowner sees production days, never line items. Each line item in the scope matches one rule in `pipeline/day_rules.py`, which names the day templates it belongs to; a project's `phases` keep only the templates and the rooms each one covers. The words the homeowner reads for each template live in `lib/templates.ts`. Every job ends with a final walkthrough day.
 
 When a job has work no template covers, add a template to `lib/templates.ts` and `pipeline/day_rules.py` (same id, same order), then a rule for the line item. Every later job reuses it.
 
@@ -49,7 +49,7 @@ The project link is `/p/<slug>`.
 
 ## The OHI view
 
-The OHI code opens `/p/<slug>/edit`. Every change there lands in a draft that only OHI sees; **Push to homeowner** publishes it. Undo steps back one change at a time until the next push, and the change log lists every edit with its time. Messages and the homeowner's change order answers are never drafted: they go live at once.
+The OHI code is the same on every project. It opens `/ohi`, the list of every project with where each one stands and a dot when the homeowner has posted something new, and from there each project's edit view at `/p/<slug>/edit`. On a phone, add `/ohi` to the home screen to open it like an app. The OHI code also works on any project's passcode screen. Every change there lands in a draft that only OHI sees; **Push to homeowner** publishes it. Undo steps back one change at a time until the next push, and the change log lists every edit with its time. Messages and the homeowner's change order answers are never drafted: they go live at once.
 
 From the OHI view you can:
 
@@ -61,19 +61,23 @@ From the OHI view you can:
 
 | Name | Value |
 | --- | --- |
-| `HUDDLE_PROJECTS` | `{"<slug>": {"name": "...", "home": "<house number, six digits>", "ohi": "<6-digit OHI code>"}}` |
-| `HUDDLE_SECRET` | Any long random string; signs the access cookie |
+| `HUDDLE_OHI_CODE` | OHI's six-digit code |
+| `HUDDLE_SECRET` | Any long random string; signs the access cookies |
+| `SUPABASE_URL` | The Supabase project's address |
+| `SUPABASE_SECRET_KEY` | A Supabase secret key. It stays on the server and is never sent to a browser |
 | `BLOB_READ_WRITE_TOKEN` | Added by connecting a Vercel Blob store to the project |
 | `RESEND_API_KEY` | Resend sending key. When a homeowner sends a message or answers a change order, OHI gets an email that links to it. Without it, no email is sent |
 
-Names, codes and customer details stay in these variables and in Blob, never in the repo.
+Names, codes and customer details stay in Supabase and Blob, never in the repo.
 
 ## Development
 
 ```
 npm install
-HUDDLE_PROJECTS='{"k7m2qx": {"name": "McClure Residence", "home": "111111", "ohi": "222222"}}' HUDDLE_SECRET=dev npm run dev
+HUDDLE_OHI_CODE=222222 HUDDLE_SECRET=dev npm run dev
 ```
+
+Without Supabase variables, projects come from `.dev/projects.json` (keyed by slug, with the `projects` table's columns) and state stays in memory.
 
 After five wrong codes in a row, a device waits 15 minutes before it can try again.
 

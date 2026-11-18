@@ -1,10 +1,20 @@
 import type { Role } from "@/lib/types";
 
 /**
- * After the right code, a cookie holds the role and an HMAC of slug + role,
- * signed with HUDDLE_SECRET. Middleware and route handlers both check it.
+ * Two kinds of signed cookie. A homeowner's cookie opens one project; OHI's
+ * cookie opens the project list and every project. Each holds an HMAC signed
+ * with HUDDLE_SECRET, and middleware and route handlers both check it.
  */
-export const cookieName = (slug: string) => `huddle_${slug}`;
+export const homeCookie = (slug: string) => `huddle_${slug}`;
+export const ohiCookie = "huddle_ohi";
+
+export const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
+  maxAge: 60 * 60 * 24 * 30,
+};
 
 async function sign(value: string) {
   const secret = process.env.HUDDLE_SECRET ?? "";
@@ -19,16 +29,25 @@ async function sign(value: string) {
   return Array.from(new Uint8Array(mac), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-export async function issueToken(slug: string, role: Role) {
-  return `${role}.${await sign(`${slug}:${role}`)}`;
+export const homeToken = (slug: string) => sign(`${slug}:home`);
+export const ohiToken = () => sign("ohi");
+
+type CookieJar = { get(name: string): { value: string } | undefined };
+
+export async function isOhi(cookies: CookieJar) {
+  const token = cookies.get(ohiCookie)?.value;
+  return Boolean(token && safeEqual(token, await ohiToken()));
 }
 
-export async function readToken(slug: string, token: string | undefined): Promise<Role | null> {
-  if (!token) return null;
-  const [role] = token.split(".");
-  if (role !== "home" && role !== "ohi") return null;
-  return safeEqual(token, await issueToken(slug, role)) ? role : null;
+/** The role these cookies have on a project: OHI anywhere, or the homeowner on their own project. */
+export async function roleOn(slug: string, cookies: CookieJar): Promise<Role | null> {
+  if (await isOhi(cookies)) return "ohi";
+  const token = cookies.get(homeCookie(slug))?.value;
+  return token && safeEqual(token, await homeToken(slug)) ? "home" : null;
 }
+
+/** The OHI code, the same on every project. */
+export const ohiCode = () => process.env.HUDDLE_OHI_CODE ?? "";
 
 /** Compares in constant time so response timing does not reveal the code. */
 export function safeEqual(a: string, b: string) {
