@@ -1,5 +1,4 @@
-import { buildTasks } from "@/lib/sequence";
-import type { Phase, Plan, Task } from "@/lib/types";
+import type { Phase, Plan } from "@/lib/types";
 
 /**
  * Projects come from the HUDDLE_PROJECTS environment variable, so names and
@@ -20,12 +19,12 @@ export function projectConfig(slug: string): ProjectConfig | null {
   }
 }
 
-export async function projectData(slug: string): Promise<{ plan: Plan; tasks: Task[] } | null> {
+export async function projectData(slug: string): Promise<{ plan: Plan; phases: Phase[] } | null> {
   if (!/^[a-z0-9]+$/.test(slug)) return null;
   try {
     const plan = (await import(`@/data/${slug}/plan.json`)).default as Plan;
     const { phases } = (await import(`@/data/${slug}/days.json`)).default as { phases: Phase[] };
-    return { plan, tasks: buildTasks(phases, plan.rooms) };
+    return { plan, phases };
   } catch {
     return null;
   }

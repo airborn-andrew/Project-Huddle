@@ -2,31 +2,35 @@
 
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { dayFormat, longDayFormat, workdayDate } from "@/lib/sequence";
+import { NoteList } from "@/components/notes";
+import { dayFormat, longDayFormat, workdayDate, type Calendar } from "@/lib/sequence";
+import type { Note } from "@/lib/types";
 
 /** A production phase as it stands on the selected day. */
-export type DayWork = { step: string; title: string; expect: string; part: number; of: number };
+export type DayWork = { phase: string; title: string; expect: string; part: number; of: number };
 
 export const speeds = [1, 3, 5] as const;
 export type Speed = (typeof speeds)[number];
 
 export function DayScrubber({
-  startDate,
+  cal,
   day,
   last,
   today,
   work,
+  notes,
   playing,
   speed,
   onChange,
   onPlay,
   onSpeed,
 }: {
-  startDate: string;
+  cal: Calendar;
   day: number;
   last: number;
   today: number;
   work: DayWork[];
+  notes: Note[];
   playing: boolean;
   speed: Speed;
   onChange: (day: number) => void;
@@ -52,8 +56,8 @@ export function DayScrubber({
       <div className="scrubber-head">
         <div>
           <span className="scrubber-date">
-            <span className="date-long">{longDayFormat.format(workdayDate(startDate, day))}</span>
-            <span className="date-short">{dayFormat.format(workdayDate(startDate, day))}</span>
+            <span className="date-long">{longDayFormat.format(workdayDate(cal, day))}</span>
+            <span className="date-short">{dayFormat.format(workdayDate(cal, day))}</span>
           </span>
           <span className="scrubber-count">
             Day {day + 1} of {last + 1}
@@ -84,7 +88,7 @@ export function DayScrubber({
       {work.length > 0 && (
         <ul className="day-work" aria-live="polite">
           {work.map((w) => (
-            <li key={w.step}>
+            <li key={w.phase}>
               <span className="day-work-title">
                 {w.title}
                 {w.of > 1 && (
@@ -98,6 +102,7 @@ export function DayScrubber({
           ))}
         </ul>
       )}
+      {notes.length > 0 && <NoteList notes={notes} />}
       <div className="scrubber-row">
         <button type="button" className="scrubber-step" aria-label="Previous day" disabled={day === 0} onClick={() => go(day - 1)}>
           <ChevronLeft />
@@ -115,7 +120,7 @@ export function DayScrubber({
             step={1}
             value={day}
             aria-label="Day"
-            aria-valuetext={longDayFormat.format(workdayDate(startDate, day))}
+            aria-valuetext={longDayFormat.format(workdayDate(cal, day))}
             onChange={(e) => go(Number(e.target.value))}
           />
         </div>

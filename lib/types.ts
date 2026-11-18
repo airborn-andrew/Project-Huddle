@@ -34,17 +34,28 @@ export type Phase = {
   rooms: Record<string, Category[]>;
 };
 
-/** One room's share of a production phase. `step` is the template id. */
-export type Task = {
+/** A production phase as OHI schedules it. `start` is a workday index from the start date. */
+export type PhaseEdit = {
   id: string;
+  template: string;
+  rooms: Record<string, Category[]>;
+  start: number;
+  days: number;
+  done: boolean;
+};
+
+/** One room's share of a scheduled production phase. `step` is the template id. */
+export type ScheduledTask = {
+  id: string;
+  phase: string;
   room: string;
   step: string;
   title: string;
   categories: Category[];
+  day: number;
+  days: number;
+  done: boolean;
 };
-
-/** A task placed on the calendar. `day` is a workday index from the start date. */
-export type ScheduledTask = Task & { day: number; days: number; done: boolean };
 
 export type Photo = { url: string; width: number; height: number };
 
@@ -77,12 +88,34 @@ export type Closeout = {
   documents: { name: string; url: string }[];
 };
 
-export type ProjectState = {
+/** A note OHI posts to a day, a room, or both. `date` is the calendar day it belongs to. */
+export type Note = { id: string; body: string; photos: Photo[]; room?: string; date?: string; at: string };
+
+export type Sub = { id: string; name: string; trade: string; phases: string[] };
+
+export type People = { pm: { name: string }; subs: Sub[] };
+
+/** Everything OHI edits. OHI works on a draft copy and pushes it to the homeowner. */
+export type Editable = {
   startDate: string;
-  /** Per-task changes made by OHI. */
-  overrides: Record<string, { day?: number; done?: boolean }>;
+  /** null until OHI changes the schedule; until then it comes from days.json. */
+  schedule: PhaseEdit[] | null;
+  offDays: string[];
+  notes: Note[];
+  /** Expect lines rewritten for this project, by template id. */
+  expect: Record<string, string>;
   changeOrders: ChangeOrder[];
-  messages: Message[];
   photos: Record<string, Photo[]>;
   closeout: Closeout;
+  people: People;
+};
+
+export type LogEntry = { at: string; text: string };
+
+/** The published project, plus OHI's draft, undo history and change log. */
+export type ProjectState = Editable & {
+  messages: Message[];
+  draft: Editable | null;
+  undo: Editable[];
+  log: LogEntry[];
 };

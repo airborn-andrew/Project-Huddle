@@ -23,10 +23,11 @@ import { Connector } from "@/components/connector";
 import { PhotosSheet } from "@/components/photos";
 import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
-import { lastDay, schedule, workdayDate, workdayIndex } from "@/lib/sequence";
+import { roomPhotos } from "@/lib/photos";
+import { calendarOf, expand, isoDate, lastDay, scheduleOf, workdayDate, workdayIndex, type Calendar } from "@/lib/sequence";
 import { templateById } from "@/lib/templates";
 import { useView } from "@/lib/view";
-import type { Plan, ProjectState, Role, Room, ScheduledTask, Task } from "@/lib/types";
+import type { Phase, Plan, ProjectState, Role, Room, ScheduledTask } from "@/lib/types";
 
 const Scene = dynamic(() => import("@/components/plan/scene").then((m) => m.Scene), { ssr: false });
 
@@ -35,20 +36,22 @@ export function Huddle({
   name,
   role,
   plan,
-  tasks,
+  phases,
   initialState,
 }: {
   slug: string;
   name: string;
   role: Role;
   plan: Plan;
-  tasks: Task[];
+  phases: Phase[];
   initialState: ProjectState;
 }) {
+  // The homeowner view always shows the published project, for OHI too.
   const { state, act } = useProject(slug, initialState);
-  const scheduled = useMemo(() => schedule(tasks, state), [tasks, state]);
+  const cal = useMemo(() => calendarOf(state), [state]);
+  const scheduled = useMemo(() => expand(scheduleOf(state, phases), plan.rooms), [state, phases, plan.rooms]);
   const last = lastDay(scheduled);
-  const today = useToday(state.startDate, last);
+  const today = useToday(cal, last);
   const [day, setDay] = useState(today);
   const { view, open, back, home } = useView();
   const { room: selected, focus, sheet, about: messageRoom } = view;
@@ -69,11 +72,11 @@ export function Huddle({
   // Once the last workday has passed, the project opens on its closeout, once.
   const shownCloseout = useRef(false);
   useEffect(() => {
-    const end = workdayDate(state.startDate, last);
+    const end = workdayDate(cal, last);
     if (shownCloseout.current || Date.now() <= end.getTime() + 36 * 60 * 60 * 1000) return;
     shownCloseout.current = true;
     if (!sheet) open({ sheet: "closeout" });
-  }, [state.startDate, last, sheet, open]);
+  }, [cal, last, sheet, open]);
 
   // Esc steps out of a picked room or a level in focus (sheets handle their own).
   useEffect(() => {
@@ -85,7 +88,11 @@ export function Huddle({
   }, [sheet, selected, focus, back]);
 
   const looks = useMemo(() => roomLooks(plan.rooms, scheduled, day), [plan.rooms, scheduled, day]);
-  const work = useMemo(() => dayWork(scheduled, day), [scheduled, day]);
+  const work = useMemo(() => dayWork(scheduled, day, state.expect), [scheduled, day, state.expect]);
+  const dayNotes = useMemo(() => {
+    const date = isoDate(workdayDate(cal, day));
+    return state.notes.filter((n) => n.date === date);
+  }, [state.notes, cal, day]);
 
   // The layers menu closes when anything else opens.
   useEffect(() => {
@@ -178,17 +185,17 @@ export function Huddle({
   const pinCounts = useMemo(() => {
     const counts: Record<string, { photos: number; messages: number }> = {};
     for (const room of plan.rooms) {
-      const photos = (state.photos[room.id] ?? []).length;
+      const photos = roomPhotos(state, room.id).length;
       const messages = state.messages.filter((m) => m.room === room.id).length;
       if (photos || messages) counts[room.id] = { photos, messages };
     }
     return counts;
-  }, [plan.rooms, state.photos, state.messages]);
+  }, [plan.rooms, state]);
   const hasPins = Object.keys(pinCounts).length > 0;
 
   // Buttons appear only once there is something behind them.
-  const hasPhotos = Object.values(state.photos).some((list) => list.length > 0);
-  const finished = Date.now() > workdayDate(state.startDate, last).getTime() + 36 * 60 * 60 * 1000;
+  const hasPhotos = plan.rooms.some((r) => roomPhotos(state, r.id).length > 0);
+  const finished = Date.now() > workdayDate(cal, last).getTime() + 36 * 60 * 60 * 1000;
   const { closeout } = state;
   const hasCloseout =
     finished || Boolean(closeout.walkthrough || closeout.warranty || closeout.punch.length || closeout.documents.length);
@@ -362,19 +369,22 @@ export function Huddle({
           key={selectedRoom.id}
           room={selectedRoom}
           tasks={scheduled.filter((t) => t.room === selectedRoom.id)}
-          startDate={state.startDate}
+          cal={cal}
           day={day}
+          expect={state.expect}
+          notes={state.notes.filter((n) => n.room === selectedRoom.id)}
           photos={state.photos[selectedRoom.id] ?? []}
           onClose={() => pick(null)}
         />
       )}
 
       <DayScrubber
-        startDate={state.startDate}
+        cal={cal}
         day={day}
         last={last}
         today={today}
         work={work}
+        notes={dayNotes}
         playing={playing}
         speed={speed}
         onPlay={(on) => {
@@ -406,7 +416,12 @@ export function Huddle({
       )}
       {sheet === "photos" && <PhotosSheet rooms={plan.rooms} state={state} onClose={back} />}
       {sheet === "closeout" && (
-        <CloseoutSheet rooms={plan.rooms} state={state} onClose={back} />
+        <CloseoutSheet
+          rooms={plan.rooms}
+          state={state}
+          walkthrough={walkthroughDate(scheduled, cal)}
+          onClose={back}
+        />
       )}
     </main>
   );
@@ -415,13 +430,25 @@ export function Huddle({
 const isOn = (t: ScheduledTask, day: number) => day >= t.day && day < t.day + t.days;
 
 /** The production phases running on a day, with which of their days it is. */
-function dayWork(tasks: ScheduledTask[], day: number): DayWork[] {
+function dayWork(tasks: ScheduledTask[], day: number, expect: Record<string, string>): DayWork[] {
   const out: DayWork[] = [];
   for (const t of tasks) {
-    if (!isOn(t, day) || out.some((w) => w.step === t.step)) continue;
-    out.push({ step: t.step, title: t.title, expect: templateById(t.step)?.expect ?? "", part: day - t.day + 1, of: t.days });
+    if (!isOn(t, day) || out.some((w) => w.phase === t.phase)) continue;
+    out.push({
+      phase: t.phase,
+      title: t.title,
+      expect: expect[t.step] ?? templateById(t.step)?.expect ?? "",
+      part: day - t.day + 1,
+      of: t.days,
+    });
   }
   return out;
+}
+
+/** The date of the final walkthrough day, if the schedule has one. */
+function walkthroughDate(tasks: ScheduledTask[], cal: Calendar) {
+  const walk = tasks.find((t) => t.step === "final-walkthrough");
+  return walk ? workdayDate(cal, walk.day) : null;
 }
 
 /** Rooms sharing the same work on a day before it reads as whole-house work. */
@@ -445,13 +472,13 @@ function roomLooks(rooms: Room[], tasks: ScheduledTask[], day: number) {
   return looks;
 }
 
-function useToday(startDate: string, last: number) {
+function useToday(cal: Calendar, last: number) {
   const [today, setToday] = useState(0);
   useEffect(() => {
     const now = new Date();
     const local = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    setToday(workdayIndex(startDate, local, last));
-  }, [startDate, last]);
+    setToday(workdayIndex(cal, local, last));
+  }, [cal, last]);
   return today;
 }
 
