@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { cookieName, readToken } from "@/lib/access";
-import { projectData } from "@/lib/projects";
+import { notifyOhi } from "@/lib/notify";
+import { projectConfig, projectData } from "@/lib/projects";
 import { calendarOf, dayFormat, defaultSchedule, phaseTitle, workdayDate } from "@/lib/sequence";
 import { editable, forRole, readState, updateState } from "@/lib/state";
 import { templateById } from "@/lib/templates";
@@ -252,6 +253,23 @@ function categoriesFor(template: string, room: string, phases: Phase[]): Categor
   return fallback[template] ?? [];
 }
 
+/** What a homeowner just posted, worded for OHI's email, with a link straight to it. */
+function homeownerUpdate(action: string, before: ProjectState, after: ProjectState, origin: string, slug: string) {
+  const base = `${origin}/p/${slug}`;
+  if (action === "message" && after.messages.length > before.messages.length) {
+    const m = after.messages[after.messages.length - 1];
+    const what = m.photos.length && !m.body ? "The homeowner sent a photo." : "The homeowner sent a message.";
+    return { what, link: `${base}?sheet=messages${m.room ? `&about=${m.room}` : ""}` };
+  }
+  if (action === "answer") {
+    const co = after.changeOrders.find((c) => c.answer && !before.changeOrders.find((b) => b.id === c.id)?.answer);
+    if (!co?.answer) return null;
+    const answer = { yes: "said yes to", no: "said no to", other: "sent something else for" }[co.answer.choice];
+    return { what: `The homeowner ${answer} the change order “${co.title}”.`, link: `${base}?sheet=changes` };
+  }
+  return null;
+}
+
 const UNDO_LIMIT = 20;
 const LOG_LIMIT = 200;
 
@@ -264,7 +282,13 @@ export async function POST(request: Request, { params }: Params) {
 
   if (shared[action] || (role === "home" && home[action])) {
     const run = shared[action] ?? home[action];
+    const before = await readState(slug);
     const state = await updateState(slug, (s) => run(s, body, role));
+    if (role === "home") {
+      const update = homeownerUpdate(action, before, state, new URL(request.url).origin, slug);
+      const project = projectConfig(slug)?.name ?? "Project Huddle";
+      if (update) after(() => notifyOhi({ project, ...update }).catch((e) => console.error(e)));
+    }
     return NextResponse.json(forRole(state, role));
   }
   if (role !== "ohi") return NextResponse.json({ error: "not allowed" }, { status: 403 });

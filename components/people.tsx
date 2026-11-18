@@ -1,6 +1,8 @@
 "use client";
 
+import { MessageCircle, Phone } from "lucide-react";
 import { Sheet } from "@/components/sheet";
+import { contact } from "@/lib/contact";
 import { dayFormat, phaseTitle, workdayDate, type Calendar } from "@/lib/sequence";
 import type { PhaseEdit, People, Room } from "@/lib/types";
 
@@ -48,6 +50,16 @@ export function PeopleSheet({
         <div>
           <h3>{people.pm.name}</h3>
           <p>Project manager</p>
+          <div className="contact">
+            <a className="contact-button" href={`tel:${contact.phone}`}>
+              <Phone />
+              Call
+            </a>
+            <a className="contact-button" href={`sms:${contact.phone}`}>
+              <MessageCircle />
+              Text
+            </a>
+          </div>
         </div>
       </div>
 
