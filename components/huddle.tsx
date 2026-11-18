@@ -242,8 +242,8 @@ function roomLooks(rooms: Room[], tasks: ScheduledTask[], day: number) {
   for (const room of rooms) {
     const mine = tasks.filter((t) => t.room === room.id);
     const layers: RoomLook["layers"] = {};
-    for (const category of new Set(mine.map((t) => t.category))) {
-      const group = mine.filter((t) => t.category === category);
+    for (const category of new Set(mine.flatMap((t) => t.categories))) {
+      const group = mine.filter((t) => t.categories.includes(category));
       let state: LayerState = "pending";
       if (group.some((t) => isOn(t, day))) state = "active";
       else if (group.every((t) => t.done || t.day + t.days - 1 < day)) state = "done";

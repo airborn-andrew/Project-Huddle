@@ -71,7 +71,7 @@ export function Editor({
         .filter((s) => scheduled.some((t) => t.step === s.id))
         .map((s) => (
           <section key={s.id}>
-            <p className="label">{s.name}</p>
+            <p className="label">{scheduled.find((t) => t.step === s.id)?.title}</p>
             <table>
               <tbody>
                 {scheduled

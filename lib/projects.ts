@@ -1,4 +1,5 @@
-import type { Plan, Task } from "@/lib/types";
+import { buildTasks } from "@/lib/sequence";
+import type { Phase, Plan, Task } from "@/lib/types";
 
 /**
  * Projects come from the HUDDLE_PROJECTS environment variable, so names and
@@ -6,7 +7,7 @@ import type { Plan, Task } from "@/lib/types";
  *
  *   {"k7m2qx": {"name": "McClure Residence", "home": "123456", "ohi": "654321"}}
  *
- * Geometry and the task map live in data/<slug>/ and public/models/<slug>.glb.
+ * Geometry and production days live in data/<slug>/ and public/models/<slug>.glb.
  */
 export type ProjectConfig = { name: string; home: string; ohi: string };
 
@@ -23,8 +24,8 @@ export async function projectData(slug: string): Promise<{ plan: Plan; tasks: Ta
   if (!/^[a-z0-9]+$/.test(slug)) return null;
   try {
     const plan = (await import(`@/data/${slug}/plan.json`)).default as Plan;
-    const { tasks } = (await import(`@/data/${slug}/tasks.json`)).default as { tasks: Task[] };
-    return { plan, tasks };
+    const { phases } = (await import(`@/data/${slug}/days.json`)).default as { phases: Phase[] };
+    return { plan, tasks: buildTasks(phases, plan.rooms) };
   } catch {
     return null;
   }

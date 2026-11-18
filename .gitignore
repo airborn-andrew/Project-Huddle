@@ -6,3 +6,7 @@ out
 *.log
 .env*
 *.tsbuildinfo
+
+# Xactimate exports for the pipeline stay on the machine that runs it
+pipeline/input/
+__pycache__/

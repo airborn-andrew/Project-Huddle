@@ -9,32 +9,35 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | `app/p/[slug]` | The plan screen, the passcode screen (`unlock`) and OHI's edit view (`edit`) |
 | `app/api/p/[slug]` | Project state, photo uploads and unlock |
 | `components/plan/scene.tsx` | The 3D plan: model, materials by work state, camera, room labels |
-| `lib/sequence.ts` | Trade order, default days, holidays and the homeowner copy for each kind of work |
+| `lib/templates.ts` | Production day templates: title, what happens, what to expect, default days |
+| `lib/sequence.ts` | Holidays, workday dates, and turning production days into the schedule |
 | `lib/state.ts` | Project state in Vercel Blob (in memory when no Blob token is set) |
 | `data/<slug>/plan.json` | Rooms from the sketch |
-| `data/<slug>/tasks.json` | The project's task map: room, kind of work, step and title |
+| `data/<slug>/days.json` | The project's production days: each template and the rooms it covers |
 | `public/models/<slug>.glb` | The 3D model from the sketch |
-| `pipeline/dxf_to_plan.py` | Sketch DXF to `plan.json` and `.glb` |
+| `pipeline/dxf_to_plan.py` | Sketch DXF and scope PDF to `plan.json`, `days.json` and `.glb` |
+| `pipeline/scope.py`, `pipeline/day_rules.py` | Reading the scope, and the rules that turn its line items into production days |
 
 ## Adding a project
 
-1. Export the Xactimate sketch as DXF and save it as `pipeline/input/<slug>.dxf`, using a random lowercase slug.
-2. Optionally save the estimate's room floor areas as `pipeline/input/<slug>.areas.json` (`{"Kitchen": 120.08, ...}`). They are printed next to the sketch areas and guide how open-plan rooms are divided.
-3. Run the pipeline:
+1. In Xactimate, export the sketch as DXF and the estimate as a PDF. Put both in `pipeline/input/<slug>/`, using a random lowercase slug. This folder is never committed; the files are read during the build and stay on your machine.
+2. Run the pipeline:
 
    ```
    pip install -r pipeline/requirements.txt
-   python pipeline/dxf_to_plan.py <slug> --check pipeline/input/<slug>.areas.json
+   python pipeline/dxf_to_plan.py <slug>
    ```
 
-4. Write `data/<slug>/tasks.json` from the estimate scope. Each task is one room and one kind of work (`Insulation`, `Cabinets`, `Appliances`, `Fixtures`, `Paint`, `Flooring`, `Doors`, `Baseboard`, `Clean`) placed in a step from `lib/sequence.ts`.
-5. Get the homeowner code from the scope PDF. It is the house number from the property address, padded with leading zeros to six digits (10305 becomes 010305):
+   It writes `data/<slug>/plan.json`, `data/<slug>/days.json` and `public/models/<slug>.glb`, and prints the homeowner code. The build stops when the sketch and the scope disagree (room names, or a room's floor area off by more than 0.5%) or when a line item matches no rule in `pipeline/day_rules.py`.
+3. Add the project to `HUDDLE_PROJECTS` in Vercel, with the printed homeowner code and an OHI code, and redeploy.
 
-   ```
-   python pipeline/scope.py <scope.pdf>
-   ```
+The homeowner code is the house number from the scope's property address, padded with leading zeros to six digits (10305 becomes 010305). `python pipeline/scope.py <scope.pdf>` prints it, along with every room and line item the scope lists.
 
-6. Add the project to `HUDDLE_PROJECTS` in Vercel, with that homeowner code and an OHI code, and redeploy.
+### Production days
+
+The homeowner sees production days, never line items. Each line item in the scope matches one rule in `pipeline/day_rules.py`, which names the day templates it belongs to; `days.json` keeps only the templates and the rooms each one covers. The words the homeowner reads for each template live in `lib/templates.ts`. Every job ends with a final walkthrough day.
+
+When a job has work no template covers, add a template to `lib/templates.ts` and `pipeline/day_rules.py` (same id, same order), then a rule for the line item. Every later job reuses it.
 
 The project link is `/p/<slug>`.
 
