@@ -5,18 +5,13 @@ import { Edges, Environment, Lightformer, OrbitControls, useGLTF } from "@react-
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import type { Category, Plan, Room } from "@/lib/types";
+import { levelHeights, type Level } from "@/lib/levels";
+import type { Category, Room } from "@/lib/types";
 
 export type LayerState = "pending" | "active" | "done";
 export type RoomLook = { active: boolean; layers: Partial<Record<Category, LayerState>> };
 
-/** How far apart the levels float, in feet. */
-const LEVEL_GAP = 7;
 
-export type Level = Plan["levels"][number];
-
-/** Height of each level in the scene. */
-export const levelHeights = (levels: Level[]) => Object.fromEntries(levels.map((l) => [l.id, l.stack * LEVEL_GAP]));
 /** Walls are cut down like a dollhouse so every room stays in view. */
 const CUTAWAY = 0.5;
 
@@ -86,6 +81,8 @@ export type SceneProps = {
   rooms: Room[];
   looks: Record<string, RoomLook>;
   selected: string | null;
+  /** The level the camera is frozen over, or null for the whole house. */
+  focus: string | null;
   onSelect: (room: string | null) => void;
   resetKey: number;
   reducedMotion: boolean;
@@ -116,10 +113,9 @@ export function Scene(props: SceneProps) {
   );
 }
 
-function House({ model, levels, rooms, looks, selected, onSelect, reducedMotion }: SceneProps) {
+function House({ model, levels, rooms, looks, selected, focus, onSelect, reducedMotion }: SceneProps) {
   const { scene } = useGLTF(model);
   const root = useRef<THREE.Group>(null);
-  const pulse = useRef(0);
 
   const parts = useMemo(() => {
     const list: Part[] = [];
@@ -142,10 +138,8 @@ function House({ model, levels, rooms, looks, selected, onSelect, reducedMotion 
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
-    pulse.current = 0.5 + 0.5 * Math.sin(t * 2.4);
-    mats.activeFloor.emissiveIntensity = 0.04 + 0.12 * pulse.current;
-    mats.activeLayer.opacity = 0.18 + 0.3 * pulse.current;
-    if (root.current) root.current.position.y = reducedMotion ? 0 : Math.sin(t * 0.55) * 0.15;
+    const still = reducedMotion || focus !== null;
+    if (root.current) root.current.position.y = still ? 0 : Math.sin(t * 0.55) * 0.15;
   });
 
   const click = (room: string) => (e: ThreeEvent<MouseEvent>) => {
@@ -159,10 +153,17 @@ function House({ model, levels, rooms, looks, selected, onSelect, reducedMotion 
       {parts.map((p) => {
         const look = looks[p.room];
         const y = levelY[p.level] ?? 0;
+        // With a level in focus, levels above it are hidden and levels below fade
+        // to a faint outline of floors and walls.
+        const faded = focus !== null && p.level !== focus;
+        if (faded && (levelY[p.level] ?? 0) > (levelY[focus] ?? 0)) return null;
+        if (faded && !["floor", "walls", "ground", "stem"].includes(p.kind)) return null;
         const dim = selected !== null && p.room !== selected && p.room !== "house" && p.kind === "floor";
-        const { material, edges, visible } = pickMaterial(p, look, mats, p.room === selected, dim);
+        const { material, edges, visible } = faded
+          ? { material: mats.ghost, edges: false as const, visible: true }
+          : pickMaterial(p, look, mats, p.room === selected, dim);
         if (!visible) return null;
-        const clickable = p.kind === "floor" || p.kind === "ground" || p.kind === "insulation";
+        const clickable = !faded && (p.kind === "floor" || p.kind === "ground" || p.kind === "insulation");
         return (
           <mesh
             key={p.name}
@@ -204,25 +205,15 @@ function makeMaterials() {
     finish: glass(0.32),
     floor: solid("#060607", 0.28, 0.25),
     floorNew: solid("#232326", 0.22, 0.2),
-    floorSelected: new THREE.MeshStandardMaterial({
-      color: "#1b1b1e",
-      roughness: 0.25,
-      emissive: "#ffffff",
-      emissiveIntensity: 0.12,
-    }),
+    floorSelected: solid("#2a2a2e", 0.3, 0.15),
     floorDim: solid("#030303", 0.4, 0.1),
-    activeFloor: new THREE.MeshStandardMaterial({
-      color: "#121214",
-      roughness: 0.25,
-      emissive: "#ffffff",
-      emissiveIntensity: 0.3,
-    }),
+    // The day's work: white, with no glow.
+    activeFloor: solid("#b8b8bd", 0.5, 0),
     activeLayer: new THREE.MeshStandardMaterial({
       color: "#ffffff",
-      emissive: "#ffffff",
-      emissiveIntensity: 0.25,
+      roughness: 0.6,
       transparent: true,
-      opacity: 0.35,
+      opacity: 0.45,
       depthWrite: false,
     }),
     doneLayer: solid("#e8e8ea", 0.4, 0),
@@ -267,7 +258,7 @@ function pickMaterial(p: Part, look: RoomLook | undefined, m: Mats, selected: bo
 }
 
 /** Frames the plan on load and on reset, and flies to a room when one is picked. */
-function CameraRig({ levels, rooms, selected, resetKey, reducedMotion, onInteract, onHeading }: SceneProps) {
+function CameraRig({ levels, rooms, selected, focus, resetKey, reducedMotion, onInteract, onHeading }: SceneProps) {
   const controls = useRef<OrbitControlsImpl>(null);
   const { camera, size } = useThree();
   const goal = useRef<{ target: THREE.Vector3; position: THREE.Vector3 } | null>(null);
@@ -277,13 +268,39 @@ function CameraRig({ levels, rooms, selected, resetKey, reducedMotion, onInterac
     const portrait = size.width / size.height < 0.9;
     const distance = portrait ? 150 : 78;
     const dir = (portrait ? new THREE.Vector3(0.6, 0.78, 0.1) : new THREE.Vector3(0.12, 0.78, 0.62)).normalize();
-    const target = new THREE.Vector3(portrait ? 1 : 0, -2.5, portrait ? 0 : 0.5);
+    // Aim at the middle of the stacked levels.
+    const heights = Object.values(levelHeights(levels));
+    const middle = (Math.max(...heights) + Math.min(...heights)) / 2;
+    const target = new THREE.Vector3(portrait ? 1 : 0, middle, portrait ? 0 : 0.5);
     return { target, position: target.clone().add(dir.multiplyScalar(distance)) };
-  }, [size.width, size.height]);
+  }, [size.width, size.height, levels]);
 
   useEffect(() => {
+    if (focus) return;
     goal.current = { target: home.target.clone(), position: home.position.clone() };
-  }, [home, resetKey]);
+  }, [home, resetKey, focus]);
+
+  // Level focus: straight down over the level, framed to fit the screen.
+  useEffect(() => {
+    if (!focus) return;
+    const onLevel = rooms.filter((r) => r.level === focus).flatMap((r) => r.polygon);
+    if (!onLevel.length) return;
+    const xs = onLevel.map(([x]) => x);
+    const ys = onLevel.map(([, y]) => y);
+    const width = Math.max(...xs) - Math.min(...xs);
+    const depth = Math.max(...ys) - Math.min(...ys);
+    const portrait = size.width / size.height < 0.9;
+    const aspect = size.width / size.height;
+    const view = 2 * Math.tan(THREE.MathUtils.degToRad(32 / 2));
+    // On phones the plan turns so its long side runs up the screen.
+    const [across, along] = portrait ? [depth, width] : [width, depth];
+    const distance = Math.max(along / view, across / (view * aspect)) * 1.45 + 6;
+    const target = new THREE.Vector3((Math.max(...xs) + Math.min(...xs)) / 2, levelHeights(levels)[focus] ?? 0, -(Math.max(...ys) + Math.min(...ys)) / 2);
+    // A small sideways offset fixes which way is up on screen: north on wide screens, west on phones.
+    const lean = distance * 0.02;
+    const offset = portrait ? new THREE.Vector3(lean, distance, 0) : new THREE.Vector3(0, distance, lean);
+    goal.current = { target, position: target.clone().add(offset) };
+  }, [focus, rooms, levels, size.width, size.height, resetKey]);
 
   useEffect(() => {
     if (!selected) return;
@@ -334,6 +351,7 @@ function CameraRig({ levels, rooms, selected, resetKey, reducedMotion, onInterac
       minDistance={14}
       maxDistance={230}
       maxPolarAngle={1.3}
+      enableRotate={!focus}
       screenSpacePanning={false}
       onStart={() => {
         goal.current = null;

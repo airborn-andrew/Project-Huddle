@@ -40,6 +40,8 @@ export function Huddle({
   const today = useToday(state.startDate, last);
   const [day, setDay] = useState(today);
   const [selected, setSelected] = useState<string | null>(null);
+  const [focus, setFocus] = useState<string | null>(null);
+  const mainLevel = plan.levels.find((l) => l.stack === 0)?.id;
   const [sheet, setSheet] = useState<SheetName>(null);
   const [resetKey, setResetKey] = useState(0);
   const [compact, setCompact] = useState(false);
@@ -71,6 +73,7 @@ export function Huddle({
 
   const overlay = useCallback(
     (room: Room) => {
+      if (focus && room.level !== focus) return null;
       if (room.id === selected) {
         return (
           <span className="bubble glass" data-picked="true">
@@ -102,11 +105,11 @@ export function Huddle({
         </span>
       );
     },
-    [selected, scheduled, day, pick, houseWork],
+    [selected, scheduled, day, pick, houseWork, focus],
   );
 
   const houseOverlay =
-    houseWork.length > 0 && !selected ? (
+    houseWork.length > 0 && !selected && (!focus || focus === mainLevel) ? (
       <div className="bubble glass" data-house="true">
         <span className="bubble-room">Whole house</span>
         {houseWork.map((title) => (
@@ -121,10 +124,11 @@ export function Huddle({
   const openChanges = state.changeOrders.filter((c) => !c.answer).length;
 
   return (
-    <main className="huddle">
+    <main className="huddle" style={{ "--levels-height": `${plan.levels.length * 32 + 8}px` } as React.CSSProperties}>
       <Scene
         model={`/models/${slug}.glb`}
         levels={plan.levels}
+        focus={focus}
         rooms={plan.rooms}
         looks={looks}
         selected={selected}
@@ -174,6 +178,7 @@ export function Huddle({
             aria-label="Reset view"
             onClick={() => {
               setSelected(null);
+              setFocus(null);
               setResetKey((k) => k + 1);
             }}
           >
@@ -192,8 +197,24 @@ export function Huddle({
           N
           <ArrowUp ref={compass} />
         </span>
-        <span className="compass-level">Main Level</span>
       </div>
+
+      <nav className="levels" aria-label="Levels" data-hidden={selected !== null}>
+        {plan.levels.map((l) => (
+          <button
+            key={l.id}
+            type="button"
+            className="level"
+            aria-pressed={focus === l.id}
+            onClick={() => {
+              setSelected(null);
+              setFocus(focus === l.id ? null : l.id);
+            }}
+          >
+            {l.name}
+          </button>
+        ))}
+      </nav>
 
       {selectedRoom && <Connector key={`line-${selectedRoom.id}`} />}
       {selectedRoom && (
