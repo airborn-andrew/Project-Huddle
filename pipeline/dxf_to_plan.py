@@ -41,10 +41,15 @@ from day_rules import build_days  # noqa: E402
 from scope import read_scope  # noqa: E402
 
 WALL_THICKNESS = 4.0  # in
-WALL_HEIGHT = 96.0  # in
-DOOR_HEAD = 80.0
-WINDOW_SILL = 36.0
 CRAWL_HEIGHT = 30.0
+
+# Windows: the sill starts 3 ft off the floor. Every window keeps at least 8 in
+# of wall above it; a window that would come closer slides down, the sill never
+# goes below 1 ft, and a window that still does not fit is cut to fit.
+WINDOW_SILL = 36.0
+WINDOW_TOP_CLEARANCE = 8.0
+WINDOW_MIN_SILL = 12.0
+PANE_THICKNESS = 0.6
 FIXTURE_COLOR = 92
 ROOM_TEXT_HEIGHT = 3.6
 AREA_TOLERANCE = 0.005
@@ -380,14 +385,7 @@ def build(slug: str):
     if missing:
         sys.exit("Room labels outside any enclosed space: " + ", ".join(sorted(missing)))
 
-    # Exterior openings with glazing lines inside are windows; the rest are doors.
-    glazing = [s for s in kept if s.length > 6]
-    open_list = []
-    for o in openings:
-        exterior = o.buffer(0.5).intersects(footprint.exterior)
-        has_glass = any(o.buffer(-0.2).contains(s.line()) or o.buffer(-0.2).crosses(s.line()) for s in glazing)
-        kind = "window" if exterior and has_glass else "door"
-        open_list.append({"kind": kind, "poly": o, "exterior": exterior})
+    open_list = match_openings(openings, rooms, footprint, scope)
 
     # Fixtures: color 92 rectangles with a label inside.
     fx_lines = [s.line() for s in segs if s.color == FIXTURE_COLOR]
@@ -407,7 +405,80 @@ def build(slug: str):
     check_against_scope(rooms, scope)
     write_days(slug, scope, [r["name"] for r in rooms])
     print(f"Homeowner code: {scope.code}")
-    write_outputs(slug, footprint, solid, rooms, open_list, fixtures)
+    for r in rooms:
+        r["height"] = next((g.height for g in scope.rooms if g.name == r["name"]), None)
+    wall_height = max((r["height"] or 96.0) for r in rooms)
+    write_outputs(slug, footprint, solid, rooms, open_list, fixtures, wall_height)
+
+
+def opening_span(poly: Polygon):
+    """Width along the wall, and the opening's centerline as (start, end) points."""
+    pts = np.array(poly.minimum_rotated_rectangle.exterior.coords[:4])
+    e0, e1 = pts[1] - pts[0], pts[2] - pts[1]
+    if np.linalg.norm(e0) >= np.linalg.norm(e1):
+        a, b = (pts[0] + pts[3]) / 2, (pts[1] + pts[2]) / 2
+    else:
+        a, b = (pts[0] + pts[1]) / 2, (pts[3] + pts[2]) / 2
+    return float(np.linalg.norm(b - a)), a, b
+
+
+def match_openings(openings, rooms, footprint, scope):
+    """Give each opening in the sketch its kind and height from the scope.
+
+    The sketch sets where an opening is and how wide. The scope lists every
+    door and window by room; each opening takes the closest-width entry in the
+    room it opens from. The build stops when a room has a different number of
+    doors and windows in the sketch and the scope.
+    """
+    listed = {g.name: list(g.openings) for g in scope.rooms}
+    heights = {g.name: g.height for g in scope.rooms}
+    touching = []
+    for o in openings:
+        near = [r for r in rooms if r["poly"].buffer(2.5).intersects(o)]
+        # Closest room first, so an opening between open-plan rooms goes to the room it is in.
+        near.sort(key=lambda r: r["poly"].distance(o.centroid))
+        touching.append([r["name"] for r in near])
+
+    problems = []
+    for name, entries in listed.items():
+        in_sketch = sum(name in t for t in touching)
+        if in_sketch != len(entries):
+            problems.append(f"{name}: {in_sketch} doors and windows in the sketch, {len(entries)} in the scope")
+    if problems:
+        sys.exit("The sketch and the scope disagree on doors and windows:\n  " + "\n  ".join(problems))
+
+    remaining = {name: list(entries) for name, entries in listed.items()}
+    result = []
+    for o, names in zip(openings, touching):
+        exterior = o.buffer(0.5).intersects(footprint.exterior)
+        width, a, b = opening_span(o)
+        pool = [(n, e) for n in names for e in remaining.get(n, []) if e.exterior == exterior]
+        if not pool:
+            sys.exit(f"No door or window in the scope for the {width:.0f} in opening at {', '.join(names)}")
+        room, entry = min(pool, key=lambda ne: (round(abs(ne[1].width - width), 1), names.index(ne[0])))
+        remaining[room].remove(entry)
+        if not exterior:
+            # An interior door is listed in both rooms it joins.
+            for other in names:
+                twin = [e for e in remaining.get(other, []) if e.kind == entry.kind and not e.exterior]
+                if other != room and twin:
+                    remaining[other].remove(min(twin, key=lambda e: abs(e.width - entry.width)))
+        wall = max(heights.get(n) or 96.0 for n in names)
+        item = {"kind": entry.kind, "poly": o, "exterior": exterior, "width": width, "a": a, "b": b, "wall": wall}
+        if entry.kind == "door":
+            item["bottom"], item["top"] = 0.0, min(entry.height, wall - 1)
+        else:
+            item["bottom"], item["top"] = place_window(entry.height, wall)
+        result.append(item)
+    return result
+
+
+def place_window(height: float, wall: float):
+    top_limit = wall - WINDOW_TOP_CLEARANCE
+    sill = WINDOW_SILL
+    if sill + height > top_limit:
+        sill = max(WINDOW_MIN_SILL, top_limit - height)
+    return sill, min(sill + height, top_limit)
 
 
 def check_against_scope(rooms, scope):
@@ -483,7 +554,19 @@ def extrude(geom, z0: float, z1: float):
     return mesh
 
 
-def write_outputs(slug, footprint, solid, rooms, openings, fixtures):
+def box(poly: Polygon, z0: float, z1: float):
+    return extrude(poly, z0, z1)
+
+
+def cut(mesh, holes):
+    """Subtract opening boxes from a wall mesh, leaving one clean piece."""
+    holes = [h for h in holes if h is not None]
+    if mesh is None or not holes:
+        return mesh
+    return trimesh.boolean.difference([mesh, *holes], engine="manifold")
+
+
+def write_outputs(slug, footprint, solid, rooms, openings, fixtures, wall_height):
     minx, miny, maxx, maxy = footprint.bounds
     cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
     W = lambda p: to_world(p, cx, cy)  # noqa: E731
@@ -495,30 +578,33 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures):
         if mesh is not None:
             scene.add_geometry(mesh, node_name=name, geom_name=name)
 
-    door_cut = unary_union([o["poly"] for o in openings])
-    wall_body = solid.difference(door_cut.buffer(0.01))
-
-    add("main__house__walls", extrude(W(wall_body), 0, ft(WALL_HEIGHT)))
+    # The sketch leaves a gap in the wall at each opening. The wall is built
+    # closed, then each opening is cut out from its bottom to its top, so the
+    # wall stays one piece above doors and above and below windows.
+    closed = unary_union([solid, *[o["poly"].buffer(0.02, join_style=2) for o in openings]]).buffer(0)
+    holes = [box(W(o["poly"].buffer(0.3, join_style=2)), ft(o["bottom"]), ft(o["top"])) for o in openings]
+    add("main__house__walls", cut(extrude(W(closed), 0, ft(wall_height)), holes))
     for i, o in enumerate(openings):
-        p = W(o["poly"])
-        if o["kind"] == "window":
-            add(f"main__house__sill_{i}", extrude(p, 0, ft(WINDOW_SILL)))
-            add(f"main__house__glass_{i}", extrude(p.buffer(-0.12), ft(WINDOW_SILL), ft(DOOR_HEAD)))
-        add(f"main__house__header_{i}", extrude(p, ft(DOOR_HEAD), ft(WALL_HEIGHT)))
+        if o["kind"] != "window":
+            continue
+        pane = LineString([tuple(o["a"]), tuple(o["b"])]).buffer(PANE_THICKNESS / 2, cap_style=2)
+        add(f"main__house__glass_{i}", extrude(W(pane), ft(o["bottom"]), ft(o["top"])))
 
     plan_rooms = []
     for r in rooms:
         rid = slug_id(r["name"])
         poly = r["poly"]
-        doors_here = [o["poly"] for o in openings if o["poly"].buffer(1).intersects(poly) and o["kind"] == "door"]
-        cuts = unary_union(doors_here).buffer(1.5) if doors_here else Polygon()
+        here = [o for o in openings if o["poly"].buffer(1).intersects(poly)]
         floor = W(poly)
         # Wall finish and baseboard follow real walls only, not open-plan dividers.
         along_walls = solid.buffer(1.0, join_style=2)
-        skin = W(poly.buffer(0.6, join_style=2).difference(poly).difference(cuts).intersection(along_walls))
-        base = W(poly.difference(poly.buffer(-0.75, join_style=2)).difference(cuts).intersection(along_walls))
+        doors = unary_union([o["poly"] for o in here if o["kind"] == "door"]).buffer(1.5)
+        skin = W(poly.buffer(0.6, join_style=2).difference(poly).intersection(along_walls))
+        base = W(poly.difference(poly.buffer(-0.75, join_style=2)).difference(doors).intersection(along_walls))
+        skin_holes = [box(W(o["poly"].buffer(1.5, join_style=2)), ft(o["bottom"]), ft(o["top"])) for o in here]
+        height = r.get("height") or wall_height
         add(f"main__{rid}__floor", extrude(floor, 0, ft(0.75)))
-        add(f"main__{rid}__walls", extrude(skin, 0, ft(WALL_HEIGHT)))
+        add(f"main__{rid}__walls", cut(extrude(skin, 0, ft(height)), skin_holes))
         add(f"main__{rid}__baseboard", extrude(base, ft(0.75), ft(4.0)))
         c = floor.representative_point() if not floor.centroid.within(floor) else floor.centroid
         plan_rooms.append(
@@ -542,7 +628,7 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures):
         if others:
             owner = min([owner, *others], key=lambda r: r["poly"].area)
         rid = "house" if o["exterior"] else slug_id(owner["name"])
-        add(f"main__{rid}__door_{i}", extrude(W(o["poly"]).buffer(-0.08), 0, ft(DOOR_HEAD)))
+        add(f"main__{rid}__door_{i}", extrude(W(o["poly"]).buffer(-0.08), 0, ft(o["top"])))
 
     plan_fixtures = []
     for i, f in enumerate(fixtures):
@@ -567,7 +653,7 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures):
         "units": "ft",
         "size": [round(w, 3), round(d, 3)],
         "levels": [
-            {"id": "main", "name": "Main Level", "height": WALL_HEIGHT / 12},
+            {"id": "main", "name": "Main Level", "height": wall_height / 12},
             {"id": "crawlspace", "name": "Crawlspace", "height": CRAWL_HEIGHT / 12},
         ],
         "rooms": plan_rooms
@@ -582,7 +668,16 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures):
             }
         ],
         "fixtures": plan_fixtures,
-        "openings": [{"kind": o["kind"], "exterior": o["exterior"]} for o in openings],
+        "openings": [
+            {
+                "kind": o["kind"],
+                "exterior": o["exterior"],
+                "width": round(o["width"] / 12, 3),
+                "bottom": round(o["bottom"] / 12, 3),
+                "top": round(o["top"] / 12, 3),
+            }
+            for o in openings
+        ],
     }
     out_json = ROOT / "data" / slug / "plan.json"
     out_json.parent.mkdir(parents=True, exist_ok=True)

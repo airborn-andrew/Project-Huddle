@@ -234,8 +234,6 @@ function pickMaterial(p: Part, look: RoomLook | undefined, m: Mats, selected: bo
       // A room's wall finish shows once it is painted or while paint is underway.
       if (state === "active") return out(m.activeLayer);
       return out(m.finish, false, state === "done");
-    case "header":
-    case "sill":
     case "stem":
       return out(m.shell, 0.65);
     case "glass":
