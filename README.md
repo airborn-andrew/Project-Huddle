@@ -33,6 +33,10 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 
 The homeowner code is the house number from the scope's property address, padded with leading zeros to six digits (10305 becomes 010305). `python pipeline/scope.py <scope.pdf>` prints it, along with every room and line item the scope lists.
 
+### Doors and windows
+
+The sketch sets where each door and window is and how wide. The scope sets whether it is a door or a window and how tall: each opening takes the closest-width door or window the scope lists for the room it is in, and the build stops when a room has a different number of doors and windows in the sketch and the scope. Walls are one piece around every opening. Windows start with the sill 3 ft off the floor and keep at least 8 in of wall above them; a window that would come closer slides down, the sill never goes below 1 ft, and a window that still does not fit is cut to fit.
+
 ### Production days
 
 The homeowner sees production days, never line items. Each line item in the scope matches one rule in `pipeline/day_rules.py`, which names the day templates it belongs to; `days.json` keeps only the templates and the rooms each one covers. The words the homeowner reads for each template live in `lib/templates.ts`. Every job ends with a final walkthrough day.
