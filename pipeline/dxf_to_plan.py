@@ -3,9 +3,9 @@
 Usage:
     python pipeline/dxf_to_plan.py <slug>
 
-Reads  pipeline/input/<slug>/  the sketch DXF (one flat layer of LINE and TEXT,
-       1 unit = 1 inch) and the scope PDF, both exported from the same estimate.
-       The input folder is never committed.
+Reads  pipeline/input/<slug>/  the scope PDF and one sketch DXF per level (one
+       flat layer of LINE and TEXT, 1 unit = 1 inch), all exported from the same
+       estimate. The input folder is never committed.
 Writes data/<slug>/plan.json, data/<slug>/days.json and public/models/<slug>.glb
 
 Walls are the 4 in face pairs. Openings are found from the jamb lines that
@@ -329,19 +329,69 @@ def extend(line: LineString, by: float) -> LineString:
     return LineString([(x0 - v[0], y0 - v[1]), (x1 + v[0], y1 + v[1])])
 
 
+LEVEL_ORDER = ["basement", "lower", "ground", "first", "main", "second", "upper", "third", "attic"]
+
+
+def level_id(name: str) -> str:
+    """"Main Level" -> "main", "Second Floor" -> "second_floor"."""
+    return re.sub(r"_level$", "", slug_id(name)) or "main"
+
+
 def inputs(slug: str):
+    """The scope PDF and each level's sketch DXF, levels ordered bottom to top.
+
+    One DXF per level, named after the level the scope uses ("Main Level.dxf",
+    "Upper Level.dxf"). A number in front sets the order ("1 Main Level.dxf").
+    A job with a single level may name its one DXF anything.
+    """
     folder = ROOT / "pipeline" / "input" / slug
     dxfs = sorted(folder.glob("*.dxf"))
     pdfs = sorted(folder.glob("*.pdf"))
-    if len(dxfs) != 1 or len(pdfs) != 1:
-        sys.exit(f"Put one sketch .dxf and one scope .pdf in {folder.relative_to(ROOT)}")
-    return dxfs[0], pdfs[0]
+    if not dxfs or len(pdfs) != 1:
+        sys.exit(f"Put the scope .pdf and one sketch .dxf per level in {folder.relative_to(ROOT)}")
+    return pdfs[0], dxfs
+
+
+def name_levels(dxfs: list[Path], scope):
+    scope_levels = list(dict.fromkeys(g.level for g in scope.rooms))
+    if len(dxfs) == 1:
+        return [(scope_levels[0] if len(scope_levels) == 1 else dxfs[0].stem, dxfs[0])]
+    named = []
+    for path in dxfs:
+        m = re.match(r"^(\d+)[\s._-]*(.*)$", path.stem)
+        order, name = (int(m.group(1)), m.group(2)) if m else (None, path.stem)
+        match = next((lv for lv in scope_levels if lv.lower() == name.strip().lower()), None)
+        if match is None:
+            sys.exit(f"{path.name} does not name a level in the scope ({', '.join(scope_levels)})")
+        word = match.split()[0].lower()
+        rank = order if order is not None else (LEVEL_ORDER.index(word) if word in LEVEL_ORDER else len(LEVEL_ORDER))
+        named.append((rank, match, path))
+    return [(name, path) for _, name, path in sorted(named, key=lambda t: t[0])]
 
 
 def build(slug: str):
-    dxf_path, scope_path = inputs(slug)
+    scope_path, dxfs = inputs(slug)
     scope = read_scope(scope_path)
-    segs, texts = read_dxf(dxf_path)
+    levels = []
+    for name, path in name_levels(dxfs, scope):
+        single = len(dxfs) == 1
+        scope_rooms = [g for g in scope.rooms if single or g.level == name]
+        levels.append(read_level(name, path, scope_rooms))
+
+    all_rooms = [r["name"] for lv in levels for r in lv["rooms"]]
+    dupes = {n for n in all_rooms if all_rooms.count(n) > 1}
+    if dupes:
+        sys.exit("Room names used on more than one level: " + ", ".join(sorted(dupes)))
+    write_days(slug, scope, all_rooms)
+    print(f"Homeowner code: {scope.code}")
+    crawlspace = scope.group("Crawlspace") is not None
+    write_outputs(slug, levels, crawlspace)
+
+
+def read_level(name: str, path: Path, scope_rooms):
+    """Walls, rooms, openings and fixtures of one level's sketch."""
+    print(f"{name} ({path.name})")
+    segs, texts = read_dxf(path)
     kept, dim_lines = classify(segs, texts)
 
     bands = []
@@ -370,7 +420,7 @@ def build(slug: str):
     room_labels = [t for t in texts if abs(t["height"] - ROOM_TEXT_HEIGHT) < 0.2 and "(" not in t["text"]]
     fixture_labels = [t for t in texts if abs(t["height"] - ROOM_TEXT_HEIGHT) < 0.2 and "(" in t["text"]]
 
-    targets = {r.name: r.floor_sf for r in scope.rooms if r.floor_sf}
+    targets = {r.name: r.floor_sf for r in scope_rooms if r.floor_sf}
     rooms = []
     for hole in holes:
         labels = [t for t in room_labels if hole.contains(Point(t["x"], t["y"]))]
@@ -385,7 +435,8 @@ def build(slug: str):
     if missing:
         sys.exit("Room labels outside any enclosed space: " + ", ".join(sorted(missing)))
 
-    open_list = match_openings(openings, rooms, footprint, scope)
+    check_against_scope(rooms, scope_rooms)
+    open_list = match_openings(openings, rooms, footprint, scope_rooms)
 
     # Fixtures: color 92 rectangles with a label inside.
     fx_lines = [s.line() for s in segs if s.color == FIXTURE_COLOR]
@@ -402,13 +453,18 @@ def build(slug: str):
         room = next((r["name"] for r in rooms if r["poly"].buffer(1).contains(poly.centroid)), None)
         fixtures.append({"label": label, "kind": kind, "poly": poly, "room": room})
 
-    check_against_scope(rooms, scope)
-    write_days(slug, scope, [r["name"] for r in rooms])
-    print(f"Homeowner code: {scope.code}")
     for r in rooms:
-        r["height"] = next((g.height for g in scope.rooms if g.name == r["name"]), None)
-    wall_height = max((r["height"] or 96.0) for r in rooms)
-    write_outputs(slug, footprint, solid, rooms, open_list, fixtures, wall_height)
+        r["height"] = next((g.height for g in scope_rooms if g.name == r["name"]), None)
+    return {
+        "id": level_id(name),
+        "name": name,
+        "footprint": footprint,
+        "solid": solid,
+        "rooms": rooms,
+        "openings": open_list,
+        "fixtures": fixtures,
+        "wall_height": max((r["height"] or 96.0) for r in rooms),
+    }
 
 
 def opening_span(poly: Polygon):
@@ -422,7 +478,7 @@ def opening_span(poly: Polygon):
     return float(np.linalg.norm(b - a)), a, b
 
 
-def match_openings(openings, rooms, footprint, scope):
+def match_openings(openings, rooms, footprint, scope_rooms):
     """Give each opening in the sketch its kind and height from the scope.
 
     The sketch sets where an opening is and how wide. The scope lists every
@@ -430,8 +486,8 @@ def match_openings(openings, rooms, footprint, scope):
     room it opens from. The build stops when a room has a different number of
     doors and windows in the sketch and the scope.
     """
-    listed = {g.name: list(g.openings) for g in scope.rooms}
-    heights = {g.name: g.height for g in scope.rooms}
+    listed = {g.name: list(g.openings) for g in scope_rooms}
+    heights = {g.name: g.height for g in scope_rooms}
     touching = []
     for o in openings:
         near = [r for r in rooms if r["poly"].buffer(2.5).intersects(o)]
@@ -481,17 +537,17 @@ def place_window(height: float, wall: float):
     return sill, min(sill + height, top_limit)
 
 
-def check_against_scope(rooms, scope):
+def check_against_scope(rooms, scope_rooms):
     """Stop the build when the sketch and the scope do not describe the same rooms."""
     sketch = {r["name"] for r in rooms}
-    listed = {r.name for r in scope.rooms}
+    listed = {r.name for r in scope_rooms}
     problems = []
     if sketch - listed:
         problems.append("In the sketch but not the scope: " + ", ".join(sorted(sketch - listed)))
     if listed - sketch:
         problems.append("In the scope but not the sketch: " + ", ".join(sorted(listed - sketch)))
     for r in rooms:
-        want = next((g.floor_sf for g in scope.rooms if g.name == r["name"]), None)
+        want = next((g.floor_sf for g in scope_rooms if g.name == r["name"]), None)
         if not want:
             continue
         sf = r["poly"].area / 144
@@ -566,10 +622,11 @@ def cut(mesh, holes):
     return trimesh.boolean.difference([mesh, *holes], engine="manifold")
 
 
-def write_outputs(slug, footprint, solid, rooms, openings, fixtures, wall_height):
-    minx, miny, maxx, maxy = footprint.bounds
+def write_outputs(slug, levels, crawlspace: bool):
+    """One glb for all levels. Node names are <level>__<room>__<part>."""
+    base = next((lv for lv in levels if lv["id"] == "main"), levels[0])
+    minx, miny, maxx, maxy = base["footprint"].bounds
     cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
-    W = lambda p: to_world(p, cx, cy)  # noqa: E731
     ft = lambda v: v / 12  # noqa: E731
 
     scene = trimesh.Scene()
@@ -578,47 +635,119 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures, wall_height
         if mesh is not None:
             scene.add_geometry(mesh, node_name=name, geom_name=name)
 
+    plan_levels, plan_rooms, plan_fixtures, plan_openings = [], [], [], []
+    base_index = levels.index(base)
+    for index, lv in enumerate(levels):
+        # Levels share the sketch's coordinates. A level drawn somewhere else
+        # on the sketch page is centered over the base level instead.
+        dx = dy = 0.0
+        if lv is not base and not lv["footprint"].intersects(base["footprint"]):
+            lminx, lminy, lmaxx, lmaxy = lv["footprint"].bounds
+            dx, dy = cx - (lminx + lmaxx) / 2, cy - (lminy + lmaxy) / 2
+        W = lambda p, dx=dx, dy=dy: to_world(affinity.translate(p, dx, dy), cx, cy)  # noqa: E731
+        add_level(add, W, ft, lv)
+        plan_levels.append({"id": lv["id"], "name": lv["name"], "height": lv["wall_height"] / 12, "stack": index - base_index})
+        for r in lv["rooms"]:
+            floor = W(r["poly"])
+            c = floor.representative_point() if not floor.centroid.within(floor) else floor.centroid
+            plan_rooms.append(
+                {
+                    "id": slug_id(r["name"]),
+                    "name": r["name"],
+                    "level": lv["id"],
+                    "areaSF": round(r["poly"].area / 144, 2),
+                    "center": [round(c.x, 3), round(c.y, 3)],
+                    "polygon": [[round(x, 3), round(y, 3)] for x, y in floor.exterior.coords],
+                }
+            )
+        for f in lv["fixtures"]:
+            plan_fixtures.append({"label": f["label"], "kind": f["kind"], "room": slug_id(f["room"]) if f["room"] else "house"})
+        for o in lv["openings"]:
+            plan_openings.append(
+                {
+                    "level": lv["id"],
+                    "kind": o["kind"],
+                    "exterior": o["exterior"],
+                    "width": round(o["width"] / 12, 3),
+                    "bottom": round(o["bottom"] / 12, 3),
+                    "top": round(o["top"] / 12, 3),
+                }
+            )
+
+    if crawlspace:
+        # Crawlspace under the lowest level: ground, stem walls and the insulation layer.
+        low = levels[0]
+        footprint = low["footprint"]
+        W = lambda p: to_world(p, cx, cy)  # noqa: E731
+        fp = W(footprint)
+        ring = W(footprint.difference(footprint.buffer(-6, join_style=2)))
+        add("crawlspace__crawlspace__ground", extrude(fp, 0, ft(1)))
+        add("crawlspace__house__stem", extrude(ring, 0, ft(CRAWL_HEIGHT)))
+        add("crawlspace__crawlspace__insulation", extrude(W(footprint.buffer(-6, join_style=2)), ft(CRAWL_HEIGHT - 10), ft(CRAWL_HEIGHT)))
+        plan_levels.insert(0, {"id": "crawlspace", "name": "Crawlspace", "height": CRAWL_HEIGHT / 12, "stack": -base_index - 1})
+        plan_rooms.append(
+            {
+                "id": "crawlspace",
+                "name": "Crawlspace",
+                "level": "crawlspace",
+                "areaSF": round(footprint.area / 144, 2),
+                "center": [0, 0],
+                "polygon": [[round(x, 3), round(y, 3)] for x, y in fp.exterior.coords],
+            }
+        )
+
+    out_glb = ROOT / "public" / "models" / f"{slug}.glb"
+    out_glb.parent.mkdir(parents=True, exist_ok=True)
+    out_glb.write_bytes(scene.export(file_type="glb"))
+
+    plan = {
+        "units": "ft",
+        "size": [round((maxx - minx) / 12, 3), round((maxy - miny) / 12, 3)],
+        "levels": sorted(plan_levels, key=lambda lv: -lv["stack"]),
+        "rooms": plan_rooms,
+        "fixtures": plan_fixtures,
+        "openings": plan_openings,
+    }
+    out_json = ROOT / "data" / slug / "plan.json"
+    out_json.parent.mkdir(parents=True, exist_ok=True)
+    out_json.write_text(json.dumps(plan, indent=2) + "\n")
+    print(f"wrote {out_glb.relative_to(ROOT)} ({out_glb.stat().st_size // 1024} KB) and {out_json.relative_to(ROOT)}")
+    for lv in levels:
+        print(f"{lv['name']}: {len(lv['rooms'])} rooms, {len(lv['openings'])} openings, {len(lv['fixtures'])} fixtures")
+
+
+def add_level(add, W, ft, lv):
+    """Walls, glass, room floors and finishes, doors and fixtures of one level."""
+    L = lv["id"]
+    solid, rooms, openings, wall_height = lv["solid"], lv["rooms"], lv["openings"], lv["wall_height"]
+
     # The sketch leaves a gap in the wall at each opening. The wall is built
     # closed, then each opening is cut out from its bottom to its top, so the
     # wall stays one piece above doors and above and below windows.
     closed = unary_union([solid, *[o["poly"].buffer(0.02, join_style=2) for o in openings]]).buffer(0)
     holes = [box(W(o["poly"].buffer(0.3, join_style=2)), ft(o["bottom"]), ft(o["top"])) for o in openings]
-    add("main__house__walls", cut(extrude(W(closed), 0, ft(wall_height)), holes))
+    add(f"{L}__house__walls", cut(extrude(W(closed), 0, ft(wall_height)), holes))
     for i, o in enumerate(openings):
         if o["kind"] != "window":
             continue
         pane = LineString([tuple(o["a"]), tuple(o["b"])]).buffer(PANE_THICKNESS / 2, cap_style=2)
-        add(f"main__house__glass_{i}", extrude(W(pane), ft(o["bottom"]), ft(o["top"])))
+        add(f"{L}__house__glass_{i}", extrude(W(pane), ft(o["bottom"]), ft(o["top"])))
 
-    plan_rooms = []
+    # Wall finish and baseboard follow real walls only, not open-plan dividers.
+    along_walls = solid.buffer(1.0, join_style=2)
     for r in rooms:
         rid = slug_id(r["name"])
         poly = r["poly"]
         here = [o for o in openings if o["poly"].buffer(1).intersects(poly)]
-        floor = W(poly)
-        # Wall finish and baseboard follow real walls only, not open-plan dividers.
-        along_walls = solid.buffer(1.0, join_style=2)
         doors = unary_union([o["poly"] for o in here if o["kind"] == "door"]).buffer(1.5)
         skin = W(poly.buffer(0.6, join_style=2).difference(poly).intersection(along_walls))
         base = W(poly.difference(poly.buffer(-0.75, join_style=2)).difference(doors).intersection(along_walls))
         skin_holes = [box(W(o["poly"].buffer(1.5, join_style=2)), ft(o["bottom"]), ft(o["top"])) for o in here]
-        height = r.get("height") or wall_height
-        add(f"main__{rid}__floor", extrude(floor, 0, ft(0.75)))
-        add(f"main__{rid}__walls", cut(extrude(skin, 0, ft(height)), skin_holes))
-        add(f"main__{rid}__baseboard", extrude(base, ft(0.75), ft(4.0)))
-        c = floor.representative_point() if not floor.centroid.within(floor) else floor.centroid
-        plan_rooms.append(
-            {
-                "id": rid,
-                "name": r["name"],
-                "level": "main",
-                "areaSF": round(poly.area / 144, 2),
-                "center": [round(c.x, 3), round(c.y, 3)],
-                "polygon": [[round(x, 3), round(y, 3)] for x, y in floor.exterior.coords],
-            }
-        )
+        add(f"{L}__{rid}__floor", extrude(W(poly), 0, ft(0.75)))
+        add(f"{L}__{rid}__walls", cut(extrude(skin, 0, ft(r.get("height") or wall_height)), skin_holes))
+        add(f"{L}__{rid}__baseboard", extrude(base, ft(0.75), ft(4.0)))
 
-    # Door leaves sit in their openings so a "Doors" day has something to light up.
+    # Door leaves sit in their openings so a doors day has something to light up.
     for i, o in enumerate(openings):
         if o["kind"] != "door":
             continue
@@ -628,62 +757,12 @@ def write_outputs(slug, footprint, solid, rooms, openings, fixtures, wall_height
         if others:
             owner = min([owner, *others], key=lambda r: r["poly"].area)
         rid = "house" if o["exterior"] else slug_id(owner["name"])
-        add(f"main__{rid}__door_{i}", extrude(W(o["poly"]).buffer(-0.08), 0, ft(o["top"])))
+        add(f"{L}__{rid}__door_{i}", extrude(W(o["poly"]).buffer(-0.08), 0, ft(o["top"])))
 
-    plan_fixtures = []
-    for i, f in enumerate(fixtures):
+    for i, f in enumerate(lv["fixtures"]):
         rid = slug_id(f["room"]) if f["room"] else "house"
         group = "cabinets" if f["kind"] == "cabinet" else ("fixtures" if f["kind"] == "tub" else "appliances")
-        add(f"main__{rid}__{group}_{i}", extrude(W(f["poly"]).buffer(-0.02), ft(0.75), ft(FIXTURE_HEIGHTS[f["kind"]])))
-        plan_fixtures.append({"label": f["label"], "kind": f["kind"], "room": rid})
-
-    # Crawlspace: ground, stem walls under the exterior walls, and the insulation layer.
-    fp = W(footprint)
-    ring = W(footprint.difference(footprint.buffer(-6, join_style=2)))
-    add("crawlspace__crawlspace__ground", extrude(fp, 0, ft(1)))
-    add("crawlspace__house__stem", extrude(ring, 0, ft(CRAWL_HEIGHT)))
-    add("crawlspace__crawlspace__insulation", extrude(W(footprint.buffer(-6, join_style=2)), ft(CRAWL_HEIGHT - 10), ft(CRAWL_HEIGHT)))
-
-    out_glb = ROOT / "public" / "models" / f"{slug}.glb"
-    out_glb.parent.mkdir(parents=True, exist_ok=True)
-    out_glb.write_bytes(scene.export(file_type="glb"))
-
-    w, d = (maxx - minx) / 12, (maxy - miny) / 12
-    plan = {
-        "units": "ft",
-        "size": [round(w, 3), round(d, 3)],
-        "levels": [
-            {"id": "main", "name": "Main Level", "height": wall_height / 12},
-            {"id": "crawlspace", "name": "Crawlspace", "height": CRAWL_HEIGHT / 12},
-        ],
-        "rooms": plan_rooms
-        + [
-            {
-                "id": "crawlspace",
-                "name": "Crawlspace",
-                "level": "crawlspace",
-                "areaSF": round(footprint.area / 144, 2),
-                "center": [0, 0],
-                "polygon": [[round(x, 3), round(y, 3)] for x, y in fp.exterior.coords],
-            }
-        ],
-        "fixtures": plan_fixtures,
-        "openings": [
-            {
-                "kind": o["kind"],
-                "exterior": o["exterior"],
-                "width": round(o["width"] / 12, 3),
-                "bottom": round(o["bottom"] / 12, 3),
-                "top": round(o["top"] / 12, 3),
-            }
-            for o in openings
-        ],
-    }
-    out_json = ROOT / "data" / slug / "plan.json"
-    out_json.parent.mkdir(parents=True, exist_ok=True)
-    out_json.write_text(json.dumps(plan, indent=2) + "\n")
-    print(f"wrote {out_glb.relative_to(ROOT)} ({out_glb.stat().st_size // 1024} KB) and {out_json.relative_to(ROOT)}")
-    print(f"{len(rooms)} rooms, {len(openings)} openings, {len(fixtures)} fixtures")
+        add(f"{L}__{rid}__{group}_{i}", extrude(W(f["poly"]).buffer(-0.02), ft(0.75), ft(FIXTURE_HEIGHTS[f["kind"]])))
 
 
 if __name__ == "__main__":

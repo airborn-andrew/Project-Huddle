@@ -124,6 +124,7 @@ export function Huddle({
     <main className="huddle">
       <Scene
         model={`/models/${slug}.glb`}
+        levels={plan.levels}
         rooms={plan.rooms}
         looks={looks}
         selected={selected}
