@@ -159,10 +159,63 @@ button {
   stroke-width: 1.8;
 }
 
+.tool {
+  position: relative;
+}
+
+/* A dot when a change order is waiting for an answer. */
+.tool[data-badge="true"]::after {
+  content: "";
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+@media (max-width: 700px) {
+  /* Phones: the title takes its own line and the buttons sit under it on the right. */
+  .topbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    padding-left: 16px;
+  }
+
+  .topbar .title {
+    font-size: 24px;
+    line-height: 30px;
+  }
+
+  .topbar[data-compact="true"] .title {
+    font-size: 18px;
+    line-height: 24px;
+  }
+
+  .title-sub {
+    display: none;
+  }
+
+  .tools {
+    align-self: flex-end;
+  }
+
+  .tool {
+    width: 38px;
+    height: 38px;
+  }
+
+  .layers-menu {
+    top: calc(env(safe-area-inset-top) + 112px);
+  }
+}
+
 .compass {
   position: absolute;
   right: 22px;
-  bottom: calc(env(safe-area-inset-bottom) + var(--scrubber-height, 108px) + 16px + var(--levels-height, 72px));
+  bottom: calc(env(safe-area-inset-bottom) + var(--scrubber-height, 108px) + 24px + var(--levels-height, 72px));
   z-index: 5;
   display: grid;
   justify-items: end;
@@ -192,6 +245,8 @@ button {
 .levels {
   position: absolute;
   right: 14px;
+  padding: 4px;
+  border-radius: var(--radius-small);
   bottom: calc(env(safe-area-inset-bottom) + var(--scrubber-height, 108px) + 16px);
   z-index: 5;
   display: grid;
@@ -205,12 +260,12 @@ button {
 }
 
 .level {
-  padding: 6px 8px;
+  padding: 6px 10px;
   border: 0;
   background: none;
   color: var(--secondary);
   font: var(--subhead);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+  text-align: right;
   transition: color 150ms ease;
 }
 
@@ -243,6 +298,20 @@ button {
 .scrubber-date {
   display: block;
   font: var(--headline);
+}
+
+.date-short {
+  display: none;
+}
+
+@media (max-width: 480px) {
+  .date-long {
+    display: none;
+  }
+
+  .date-short {
+    display: inline;
+  }
 }
 
 .scrubber-count {
@@ -714,6 +783,18 @@ button {
   flex: none;
   border-radius: 10px;
   object-fit: cover;
+}
+
+.photos-large {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  overflow: visible;
+}
+
+.photos-large img {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
 }
 
 @keyframes rise {

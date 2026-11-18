@@ -65,8 +65,14 @@ function Projector({ rooms, levels, root }: { rooms: Room[]; levels: Level[]; ro
       v.copy(p.at);
       v.y += lift;
       v.project(camera);
-      const x = ((v.x + 1) / 2) * size.width;
+      let x = ((v.x + 1) / 2) * size.width;
       const y = ((1 - v.y) / 2) * size.height;
+      // Keep a work bubble on screen when its room is near the edge.
+      const bubble = el.firstElementChild as HTMLElement | null;
+      if (bubble?.classList.contains("bubble")) {
+        const half = bubble.offsetWidth / 2 + 12;
+        x = Math.min(Math.max(x, half), size.width - half);
+      }
       el.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
       el.style.visibility = v.z < 1 ? "visible" : "hidden";
     }
