@@ -27,7 +27,7 @@ export type Plan = {
   rooms: Room[];
 };
 
-/** One production phase from data/<slug>/days.json: a template and the rooms it covers. */
+/** One production phase from the pipeline: a template and the rooms it covers. */
 export type Phase = {
   template: string;
   /** Room id to the parts of the model the phase works on in that room. */
@@ -98,7 +98,7 @@ export type People = { pm: { name: string }; subs: Sub[] };
 /** Everything OHI edits. OHI works on a draft copy and pushes it to the homeowner. */
 export type Editable = {
   startDate: string;
-  /** null until OHI changes the schedule; until then it comes from days.json. */
+  /** null until OHI changes the schedule; until then it is the project's production days end to end. */
   schedule: PhaseEdit[] | null;
   offDays: string[];
   notes: Note[];
@@ -118,4 +118,6 @@ export type ProjectState = Editable & {
   draft: Editable | null;
   undo: Editable[];
   log: LogEntry[];
+  /** When OHI last opened the project; homeowner posts after it show as new on the project list. */
+  ohiSeen: string | null;
 };

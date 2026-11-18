@@ -10,3 +10,7 @@ out
 # Xactimate exports for the pipeline stay on the machine that runs it
 pipeline/input/
 __pycache__/
+
+# Pipeline output and local development data; projects live in Supabase
+data/
+.dev/

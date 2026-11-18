@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { Passcode } from "@/components/passcode";
-import { projectConfig } from "@/lib/projects";
+import { getProject } from "@/lib/projects";
+
+export const dynamic = "force-dynamic";
 
 export default async function UnlockPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const config = projectConfig(slug);
-  if (!config) notFound();
-  return <Passcode slug={slug} name={config.name} />;
+  const project = await getProject(slug);
+  if (!project) notFound();
+  return <Passcode title={project.name} endpoint={`/api/p/${slug}/unlock`} home={`/p/${slug}`} />;
 }

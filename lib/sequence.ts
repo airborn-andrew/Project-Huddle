@@ -9,7 +9,7 @@ export type Calendar = { start: string; off: string[] };
 
 export const calendarOf = (s: Pick<Editable, "startDate" | "offDays">): Calendar => ({ start: s.startDate, off: s.offDays });
 
-/** The production days from days.json laid end to end in trade order, from day 0. */
+/** The project's production days laid end to end in trade order, from day 0. */
 export function defaultSchedule(phases: Phase[]): PhaseEdit[] {
   let start = 0;
   return phases.map((p) => {
@@ -20,7 +20,7 @@ export function defaultSchedule(phases: Phase[]): PhaseEdit[] {
   });
 }
 
-/** The schedule in force: OHI's edits, or the default from days.json. */
+/** The schedule in force: OHI's edits, or the project's production days laid end to end. */
 export const scheduleOf = (s: Pick<Editable, "schedule">, phases: Phase[]) => s.schedule ?? defaultSchedule(phases);
 
 /** One task per room per production phase, placed on its workdays. */

@@ -2,7 +2,7 @@ import type { Room } from "@/lib/types";
 
 /**
  * Production day templates, in trade order. The pipeline decides which ones a
- * job uses and which rooms each one covers (data/<slug>/days.json); the words
+ * job uses and which rooms each one covers (the project's phases); the words
  * the homeowner reads live here and are the same on every job.
  * Ids match pipeline/day_rules.py.
  */
