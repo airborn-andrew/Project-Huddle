@@ -2,7 +2,17 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowUp, Camera, ClipboardCheck, FileSignature, Layers, MessageCircle, RotateCcw, SlidersHorizontal } from "lucide-react";
+import {
+  ArrowUp,
+  Camera,
+  ClipboardCheck,
+  FileSignature,
+  Images,
+  Layers,
+  MessageCircle,
+  RotateCcw,
+  SlidersHorizontal,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DayScrubber, type DayWork, type Speed } from "@/components/day-scrubber";
 import { RoomCard } from "@/components/room-card";
@@ -10,6 +20,7 @@ import { Messages } from "@/components/messages";
 import { ChangeOrders } from "@/components/change-orders";
 import { CloseoutSheet } from "@/components/closeout";
 import { Connector } from "@/components/connector";
+import { PhotosSheet } from "@/components/photos";
 import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
 import { lastDay, schedule, workdayDate, workdayIndex } from "@/lib/sequence";
@@ -18,7 +29,7 @@ import type { Plan, ProjectState, Role, Room, ScheduledTask, Task } from "@/lib/
 
 const Scene = dynamic(() => import("@/components/plan/scene").then((m) => m.Scene), { ssr: false });
 
-type SheetName = "messages" | "changes" | "closeout" | null;
+type SheetName = "messages" | "changes" | "closeout" | "photos" | null;
 
 export function Huddle({
   slug,
@@ -157,6 +168,13 @@ export function Huddle({
   }, [plan.rooms, state.photos, state.messages]);
   const hasPins = Object.keys(pinCounts).length > 0;
 
+  // Buttons appear only once there is something behind them.
+  const hasPhotos = Object.values(state.photos).some((list) => list.length > 0);
+  const finished = Date.now() > workdayDate(state.startDate, last).getTime() + 36 * 60 * 60 * 1000;
+  const { closeout } = state;
+  const hasCloseout =
+    finished || Boolean(closeout.walkthrough || closeout.warranty || closeout.punch.length || closeout.documents.length);
+
   const pins = (room: Room) => {
     const c = pinCounts[room.id];
     if (!c || selected || (focus && room.level !== focus)) return null;
@@ -248,17 +266,27 @@ export function Huddle({
           >
             <MessageCircle />
           </button>
-          <button
-            type="button"
-            className="tool"
-            aria-label={openChanges ? `Change orders, ${openChanges} waiting` : "Change orders"}
-            onClick={() => setSheet("changes")}
-          >
-            <FileSignature />
-          </button>
-          <button type="button" className="tool" aria-label="Closeout" onClick={() => setSheet("closeout")}>
-            <ClipboardCheck />
-          </button>
+          {hasPhotos && (
+            <button type="button" className="tool" aria-label="Photos" onClick={() => setSheet("photos")}>
+              <Images />
+            </button>
+          )}
+          {state.changeOrders.length > 0 && (
+            <button
+              type="button"
+              className="tool"
+              aria-label={openChanges ? `Change orders, ${openChanges} waiting` : "Change orders"}
+              data-badge={openChanges > 0}
+              onClick={() => setSheet("changes")}
+            >
+              <FileSignature />
+            </button>
+          )}
+          {hasCloseout && (
+            <button type="button" className="tool" aria-label="Closeout" onClick={() => setSheet("closeout")}>
+              <ClipboardCheck />
+            </button>
+          )}
           <button
             type="button"
             className="tool"
@@ -303,7 +331,7 @@ export function Huddle({
         </span>
       </div>
 
-      <nav className="levels" aria-label="Levels" data-hidden={selected !== null}>
+      <nav className="levels glass" aria-label="Levels" data-hidden={selected !== null}>
         {plan.levels.map((l) => (
           <button
             key={l.id}
@@ -368,6 +396,7 @@ export function Huddle({
       {sheet === "changes" && (
         <ChangeOrders slug={slug} role={role} state={state} act={act} onClose={() => setSheet(null)} />
       )}
+      {sheet === "photos" && <PhotosSheet rooms={plan.rooms} state={state} onClose={() => setSheet(null)} />}
       {sheet === "closeout" && (
         <CloseoutSheet rooms={plan.rooms} state={state} onClose={() => setSheet(null)} />
       )}

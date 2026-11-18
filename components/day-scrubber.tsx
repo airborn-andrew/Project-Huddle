@@ -2,7 +2,7 @@
 
 import { ChevronLeft, ChevronRight, Pause, Play } from "lucide-react";
 import { useEffect, useRef } from "react";
-import { longDayFormat, workdayDate } from "@/lib/sequence";
+import { dayFormat, longDayFormat, workdayDate } from "@/lib/sequence";
 
 /** A production phase as it stands on the selected day. */
 export type DayWork = { step: string; title: string; expect: string; part: number; of: number };
@@ -51,7 +51,10 @@ export function DayScrubber({
     <div ref={box} className="scrubber glass">
       <div className="scrubber-head">
         <div>
-          <span className="scrubber-date">{longDayFormat.format(workdayDate(startDate, day))}</span>
+          <span className="scrubber-date">
+            <span className="date-long">{longDayFormat.format(workdayDate(startDate, day))}</span>
+            <span className="date-short">{dayFormat.format(workdayDate(startDate, day))}</span>
+          </span>
           <span className="scrubber-count">
             Day {day + 1} of {last + 1}
           </span>
