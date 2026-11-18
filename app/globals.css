@@ -1464,6 +1464,31 @@ textarea.field {
   font: 600 17px/1 var(--font);
 }
 
+.contact {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.contact-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: var(--ink);
+  color: #111;
+  font: var(--headline);
+  font-size: 15px;
+  text-decoration: none;
+}
+
+.contact-button svg {
+  width: 16px;
+  height: 16px;
+}
+
 .person-days {
   display: grid;
   gap: 4px;

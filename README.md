@@ -64,6 +64,7 @@ From the OHI view you can:
 | `HUDDLE_PROJECTS` | `{"<slug>": {"name": "...", "home": "<house number, six digits>", "ohi": "<6-digit OHI code>"}}` |
 | `HUDDLE_SECRET` | Any long random string; signs the access cookie |
 | `BLOB_READ_WRITE_TOKEN` | Added by connecting a Vercel Blob store to the project |
+| `RESEND_API_KEY` | Resend sending key. When a homeowner sends a message or answers a change order, OHI gets an email that links to it. Without it, no email is sent |
 
 Names, codes and customer details stay in these variables and in Blob, never in the repo.
 
