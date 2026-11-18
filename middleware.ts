@@ -18,7 +18,10 @@ export async function middleware(request: NextRequest) {
 
   if (!role) {
     if (isApi) return NextResponse.json({ error: "locked" }, { status: 401 });
-    return NextResponse.redirect(new URL(`/p/${slug}/unlock`, request.url));
+    // The passcode screen returns to the page that was asked for, so a link to a sheet still opens it.
+    const unlock = new URL(`/p/${slug}/unlock`, request.url);
+    unlock.searchParams.set("next", pathname + request.nextUrl.search);
+    return NextResponse.redirect(unlock);
   }
   if (rest.startsWith("/edit") && role !== "ohi") {
     return NextResponse.redirect(new URL(`/p/${slug}`, request.url));
