@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 export type Theme = "gray" | "dark";
 
 const KEY = "huddle-theme";
-const statusBar: Record<Theme, string> = { gray: "#5a5d62", dark: "#3a3a3d" };
+const statusBar: Record<Theme, string> = { gray: "#3c3e42", dark: "#1c1c1e" };
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>("gray");

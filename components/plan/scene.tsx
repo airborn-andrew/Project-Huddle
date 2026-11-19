@@ -102,16 +102,18 @@ export function Scene(props: SceneProps) {
     <Canvas
       dpr={[1, 2]}
       camera={{ fov: 32, near: 0.5, far: 600, position: [10, 52, 62] }}
-      gl={{ antialias: true, alpha: true }}
+      // A neutral tone curve keeps true white and true black; the default film curve dulls both.
+      gl={{ antialias: true, alpha: true, toneMapping: THREE.NeutralToneMapping, toneMappingExposure: 1 }}
       onPointerMissed={() => props.onSelect(null)}
     >
-      <ambientLight intensity={0.55} />
-      <directionalLight position={[-20, 40, 18]} intensity={1.4} />
-      <directionalLight position={[25, 18, -20]} intensity={0.35} />
+      {/* One strong key light shapes the house; little fill, so the floors stay black. */}
+      <ambientLight intensity={0.22} />
+      <directionalLight position={[-20, 40, 18]} intensity={1.9} />
+      <directionalLight position={[25, 18, -20]} intensity={0.3} />
       <Environment resolution={128}>
-        <Lightformer intensity={2.2} position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={[40, 20, 1]} />
-        <Lightformer intensity={1.2} position={[-30, 6, 10]} rotation-y={Math.PI / 2} scale={[30, 8, 1]} />
-        <Lightformer intensity={0.8} position={[30, 4, -10]} rotation-y={-Math.PI / 2} scale={[30, 6, 1]} />
+        <Lightformer intensity={1.8} position={[0, 12, 0]} rotation-x={Math.PI / 2} scale={[40, 20, 1]} />
+        <Lightformer intensity={0.8} position={[-30, 6, 10]} rotation-y={Math.PI / 2} scale={[30, 8, 1]} />
+        <Lightformer intensity={0.5} position={[30, 4, -10]} rotation-y={-Math.PI / 2} scale={[30, 6, 1]} />
       </Environment>
       <House {...props} />
       <CameraRig {...props} />
@@ -202,19 +204,20 @@ function makeMaterials() {
       depthWrite: false,
       side: THREE.DoubleSide,
     });
-  const solid = (color: string, roughness = 0.35, metalness = 0.15) =>
-    new THREE.MeshStandardMaterial({ color, roughness, metalness });
+  const solid = (color: string, roughness = 0.35, metalness = 0.15, envMapIntensity = 1) =>
+    new THREE.MeshStandardMaterial({ color, roughness, metalness, envMapIntensity });
   return {
     shell: glass(0.3),
     pane: glass(0.1),
     ghost: glass(0.06),
     finish: glass(0.32),
-    floor: solid("#060607", 0.28, 0.25),
-    floorNew: solid("#232326", 0.22, 0.2),
+    // Floors take little reflected light, so black reads as black.
+    floor: solid("#060607", 0.9, 0, 0.1),
+    floorNew: solid("#232326", 0.45, 0.05, 0.35),
     floorSelected: solid("#2a2a2e", 0.3, 0.15),
     floorDim: solid("#030303", 0.4, 0.1),
     // The day's work: white, with no glow.
-    activeFloor: solid("#b8b8bd", 0.5, 0),
+    activeFloor: solid("#f2f2f4", 0.5, 0),
     // The room the homeowner tapped: every wall glows white, brighter than the day's work.
     selectedWalls: new THREE.MeshStandardMaterial({
       color: "#ffffff",
