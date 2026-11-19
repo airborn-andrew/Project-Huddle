@@ -37,7 +37,13 @@ export async function costingView(slug: string) {
     lines: lines.filter((l) => l.status === "approved"),
     approvals: {
       budgets: [...pending.values()],
-      entries: entries.filter((e) => e.status === "proposed"),
+      entries: entries.filter((e) => e.status === "proposed" && e.scope === "in_scope"),
+    },
+    /** Entries outside the approved estimate, by where they wait: OHI's decision, the homeowner's answer, or the carrier. */
+    scope: {
+      review: entries.filter((e) => e.scope === "review"),
+      homeowner: entries.filter((e) => e.scope === "homeowner"),
+      supplement: entries.filter((e) => e.scope === "supplement"),
     },
     entries: entries.filter((e) => e.status === "approved"),
     trades,
@@ -83,6 +89,11 @@ export async function jobContext(slug: string) {
         description: e.description,
         created_by: e.created_by,
       })),
+    },
+    scope: {
+      review: view.scope.review.map((e) => ({ id: e.id, cost_code: e.cost_code, amount: e.amount, vendor: e.vendor, description: e.description })),
+      homeowner: view.scope.homeowner.map((e) => ({ id: e.id, change_order: e.change_order, description: e.description })),
+      supplement: view.scope.supplement.map((e) => ({ id: e.id, cost_code: e.cost_code, amount: e.amount, description: e.description })),
     },
     notes: view.notes,
     tasks: view.tasks.filter((t) => t.status !== "done" && t.status !== "failed"),

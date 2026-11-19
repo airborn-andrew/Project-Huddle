@@ -1667,10 +1667,20 @@ textarea.field {
   color: var(--tertiary);
 }
 
+.group p.co-price {
+  margin: 0 0 6px;
+  color: var(--ink);
+  font: var(--headline);
+}
+
 /* ---------- Job costing ---------- */
 
 .cost-figure {
   font-variant-numeric: tabular-nums;
+}
+
+.scope-choices {
+  flex-wrap: wrap;
 }
 
 .edit [data-warn] {

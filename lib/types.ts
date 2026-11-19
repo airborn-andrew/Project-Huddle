@@ -76,6 +76,8 @@ export type ChangeOrder = {
   body: string;
   photos: Photo[];
   createdAt: string;
+  /** What the homeowner pays, on a change order they pay for. Insurance work carries no price. */
+  price?: number;
   answer?: { choice: "yes" | "no" | "other"; note?: string; photos: Photo[]; at: string };
 };
 

@@ -23,6 +23,7 @@ export function GET(request: Request) {
       description: [
         "OHI's job costing, run by bots. The code does every calculation; bots write facts and read results.",
         "Money a bot writes (budget imports and entries) waits for OHI's approval before it counts. Notes, flags and line assignments land at once.",
+        "The scope gate: a commitment or cost counts only inside the carrier-approved estimate. One in a section with no approved estimate lines lands with scope 'review' and waits for OHI to discard it, send it to the homeowner as a priced change order, or send it to the carrier as a supplement. Name the approved budget line ids an entry covers in `covers` when you can match them; naming a line that is not approved is refused.",
         "Work arrives as tasks: claim one with GET /tasks/next, do only what it asks, and answer with POST /tasks/{id}. A result that does not match the task's shape is refused and the task is retried.",
         "A bot with a webhook gets a POST when a task it takes is queued: { event: 'task', task_id, type }, signed in X-Huddle-Signature as sha256=HMAC-SHA256(body) keyed with the hex SHA-256 of its token.",
         `Task types: ${Object.entries(taskTypes)
@@ -102,9 +103,10 @@ export function GET(request: Request) {
               vendor: { type: "string" },
               source: { type: "string", description: "Where the figure came from" },
               reason: { type: "string" },
+              covers: { type: "array", items: { type: "string" }, description: "Approved budget line ids this entry covers" },
             },
           }),
-          responses: { 201: ok("The entry, waiting for approval") },
+          responses: { 201: ok("The entry, waiting for approval; scope 'review' when it is outside the approved estimate"), 422: ok("A field is missing, or covers names a line that is not approved") },
         },
       },
       "/jobs/{slug}/notes": {

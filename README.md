@@ -24,7 +24,7 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 
 ## Adding a project
 
-1. In Xactimate, export the estimate as a PDF and each level of the sketch as a DXF. Put them in `pipeline/input/<slug>/`, using a random lowercase slug. This folder is never committed; the files are read during the build and stay on your machine.
+1. In Xactimate, export the carrier-approved version of the estimate as a PDF and each level of the sketch as a DXF. Production days come from this scope, so work the carrier denied never becomes a day. Put them in `pipeline/input/<slug>/`, using a random lowercase slug. This folder is never committed; the files are read during the build and stay on your machine.
 
    Name each DXF after the level the scope uses, with a number in front for the order from the bottom up: `1 Main Level.dxf`, `2 Upper Level.dxf`. A job with one level can name its DXF anything. When the scope has a Crawlspace section, the model adds a crawlspace under the lowest level.
 2. Run the pipeline:
@@ -72,6 +72,7 @@ Each project's edit view has a Job costing section that only OHI sees. It sets t
 
 - **Insurance budget:** the Components report of the carrier-approved estimate. `python pipeline/components.py <components.pdf>` reads it, checks every page adds up to its printed total, and prints the JSON for `POST /api/agent/jobs/<slug>/budget`. Each component lands in a section by `lib/cost-codes.ts`; one no rule covers stays unassigned until it is moved. Approving a new import replaces the one before it.
 - **Supplements, commitments and actual costs** are entries against a section. Accepting a bid means approving its commitment.
+- **The scope gate:** a commitment or cost counts only inside the carrier-approved estimate. One in a section with no approved estimate lines (the carrier denied it, or it was never asked for) waits under Not in the approved estimate until OHI decides: discard it, have the homeowner pay with a priced change order (it joins the job when the homeowner says yes), or send it to the carrier as a supplement (it joins the job when OHI marks it approved). Nothing outside the approved scope reaches the homeowner except that change order, which waits in OHI's draft until it is pushed.
 - **Cost to complete** follows the commitments not yet paid, or with nothing committed, the insurance money not yet spent. OHI can set it for a section instead.
 - **Overhead and profit** from the approved estimate is entered under Job settings and counts toward the job's revenue.
 

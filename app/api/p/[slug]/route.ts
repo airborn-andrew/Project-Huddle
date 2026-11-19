@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { roleOn } from "@/lib/access";
 import { recordEvents } from "@/lib/ledger";
 import { notifyOhi } from "@/lib/notify";
+import { onChangeOrderAnswer, onChangeOrderWithdrawn } from "@/lib/scope";
 import { getProject } from "@/lib/projects";
 import { calendarOf, dayFormat, defaultSchedule, phaseTitle, workdayDate } from "@/lib/sequence";
 import { editable, forRole, readState, updateState } from "@/lib/state";
@@ -308,9 +309,16 @@ export async function POST(request: Request, { params }: Params) {
     if (role === "home") {
       const update = homeownerUpdate(action, before, state, new URL(request.url).origin, slug);
       const project = (await getProject(slug))?.name ?? "Project Huddle";
+      if (action === "answer") {
+        const co = state.changeOrders.find((c) => c.id === body.id);
+        if (co?.answer && !before.changeOrders.find((c) => c.id === co.id)?.answer) {
+          const origin = new URL(request.url).origin;
+          after(() => onChangeOrderAnswer(slug, co.id, co.answer!.choice, co.price, origin, project).catch((e) => console.error(e)));
+        }
+      }
       if (update) {
         after(() => notifyOhi({ project, ...update }).catch((e) => console.error(e)));
-        after(() => recordEvents(slug, { kind: "ohi" }, [{ type: "homeowner", data: { text: update.what } }]).catch((e) => console.error(e)));
+        after(() => recordEvents(slug, { kind: "homeowner" }, [{ type: "homeowner", data: { text: update.what } }]).catch((e) => console.error(e)));
       }
     }
     return NextResponse.json(forRole(state, role));
@@ -356,6 +364,10 @@ export async function POST(request: Request, { params }: Params) {
     }
     s.log = s.log.slice(0, LOG_LIMIT);
   });
+  if (action === "withdrawChangeOrder" && changes.length && typeof body.id === "string") {
+    const coId = body.id;
+    after(() => onChangeOrderWithdrawn(slug, coId).catch((e) => console.error(e)));
+  }
   // The change log lines also go to the job's event feed, for the bots following the job.
   if (changes.length) {
     const events = changes.map((text) => ({ type: "edit", data: { text } }));

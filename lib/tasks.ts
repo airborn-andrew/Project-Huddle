@@ -74,9 +74,10 @@ export const taskTypes: Record<string, TaskType> = {
     },
   },
   "read-bid": {
-    does: "Read a sub or supplier bid into its items. Each item becomes a proposed commitment for OHI to accept or reject.",
+    does:
+      "Read a sub or supplier bid into its items. Each item becomes a proposed commitment for OHI to accept or reject. An item in a section with no approved estimate lines waits for OHI's scope decision. Name the approved budget line ids an item covers in covers when you can match them.",
     input: "{ source: where the bid is }",
-    result: "{ vendor, date?, expires?, total?, items: [{ description, amount, cost_code? }] }",
+    result: "{ vendor, date?, expires?, total?, items: [{ description, amount, cost_code?, covers?: [budget line id] }] }",
     checkInput: (input) => (text(input.source) ? { source: text(input.source) } : "input.source is required"),
     async finish(task, result, done) {
       const vendor = text(result.vendor, 120);
@@ -91,16 +92,21 @@ export const taskTypes: Record<string, TaskType> = {
       const total = money(result.total);
       const sum = entries.reduce((s, e) => s + Math.round(e.amount * 100), 0) / 100;
       if (total !== null && Math.abs(total - sum) > 0.005) return `items add up to ${sum.toFixed(2)}, not the bid total ${total.toFixed(2)}`;
+      // Every named line must be approved before any item is written, so a refused result leaves nothing behind.
+      const approved = new Set((await select<BudgetLine>("budget_lines", { slug: done.slug, status: "approved" })).map((l) => l.id));
+      const unknown = entries.flatMap((e) => e.covers).filter((id) => !approved.has(id));
+      if (unknown.length) return `covers names lines not in the approved estimate: ${unknown.join(", ")}`;
       const terms = [text(result.date, 40) && `dated ${text(result.date, 40)}`, text(result.expires, 40) && `expires ${text(result.expires, 40)}`]
         .filter(Boolean)
         .join(", ");
       for (const entry of entries) {
-        await addEntry(done.slug, done.actor, {
+        const added = await addEntry(done.slug, done.actor, {
           ...entry,
           vendor,
           source: text(task.input.source, 1000),
           reason: terms ? `Bid ${terms}` : entry.reason,
         });
+        if ("error" in added) return added.error;
       }
       return null;
     },

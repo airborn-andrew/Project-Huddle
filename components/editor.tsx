@@ -33,6 +33,7 @@ import {
 
 type Act = (action: string, body?: Record<string, unknown>) => Promise<boolean>;
 
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const logTime = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
 /** OHI's draft, or the published project when there are no unpushed changes. */
@@ -481,7 +482,10 @@ function ChangeOrdersEditor({ slug, editable, act }: { slug: string; editable: E
             ) : (
               <div key={co.id} className="edit-item">
                 <div>
-                  <p className="edit-item-title">{co.title}</p>
+                  <p className="edit-item-title">
+                    {co.title}
+                    {co.price !== undefined && ` · ${usd.format(co.price)}`}
+                  </p>
                   <p className="edit-item-meta">
                     {co.answer ? `Answered ${co.answer.choice === "other" ? "with something else" : co.answer.choice}` : "Waiting"}
                   </p>

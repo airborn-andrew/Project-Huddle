@@ -18,6 +18,7 @@ import {
   type Actor,
 } from "@/lib/ledger";
 import { getProject } from "@/lib/projects";
+import { decideScope, resolveSupplement } from "@/lib/scope";
 import { createTask, onNote, release } from "@/lib/tasks";
 
 type Params = { params: Promise<{ slug: string }> };
@@ -46,13 +47,26 @@ export async function POST(request: Request, { params }: Params) {
     case "decideBudget":
       if (!(await decideBatch(slug, text(body.batch, 80) ?? "", body.approve === true, ohi))) return fail("nothing waiting in that batch");
       break;
-    case "decideEntry":
-      if (!(await decideEntry(slug, id, body.approve === true, ohi))) return fail("nothing waiting by that id");
+    case "decideEntry": {
+      const decided = await decideEntry(slug, id, body.approve === true, ohi);
+      if ("error" in decided) return fail(decided.error);
       break;
+    }
     case "entry": {
       const entry = readEntry(body);
       if ("error" in entry) return fail(entry.error);
-      await addEntry(slug, ohi, entry);
+      const added = await addEntry(slug, ohi, entry);
+      if ("error" in added) return fail(added.error);
+      break;
+    }
+    case "scope": {
+      const decided = await decideScope(slug, id, body.choice, body, ohi);
+      if ("error" in decided) return fail(decided.error);
+      break;
+    }
+    case "supplement": {
+      const resolved = await resolveSupplement(slug, id, body, ohi);
+      if ("error" in resolved) return fail(resolved.error);
       break;
     }
     case "assign":
