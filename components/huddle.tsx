@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { DayScrubber, type DayWork, type Speed } from "@/components/day-scrubber";
+import { DayScrubber, type DayWork, type Speed, type TrackPhase } from "@/components/day-scrubber";
 import { RoomCard } from "@/components/room-card";
 import { Messages } from "@/components/messages";
 import { ChangeOrders } from "@/components/change-orders";
@@ -29,7 +29,7 @@ import { SelectionsSheet } from "@/components/selections";
 import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
 import { roomPhotos } from "@/lib/photos";
-import { calendarOf, expand, isoDate, lastDay, scheduleOf, workdayDate, workdayIndex, type Calendar } from "@/lib/sequence";
+import { calendarOf, expand, isoDate, lastDay, phaseTitle, scheduleOf, workdayDate, workdayIndex, type Calendar } from "@/lib/sequence";
 import { templateById } from "@/lib/templates";
 import { useTheme } from "@/lib/theme";
 import { useView } from "@/lib/view";
@@ -62,6 +62,13 @@ export function Huddle({
   const scheduled = useMemo(() => expand(schedule, plan.rooms), [schedule, plan.rooms]);
   const last = lastDay(scheduled);
   const today = useToday(cal, last);
+  const trackPhases = useMemo<TrackPhase[]>(
+    () =>
+      schedule
+        .filter((p) => Object.keys(p.rooms).length)
+        .map((p) => ({ id: p.id, title: phaseTitle(p, plan.rooms), start: p.start, days: p.days, done: p.done })),
+    [schedule, plan.rooms],
+  );
   const [day, setDay] = useState(today);
   const { view, open, back, home } = useView();
   const { room: selected, focus, sheet, about: messageRoom } = view;
@@ -73,6 +80,8 @@ export function Huddle({
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(1);
   const [compact, setCompact] = useState(false);
+  // The schedule shrinks to a pill while the homeowner moves around the house, and opens again with a tap.
+  const [scheduleCompact, setScheduleCompact] = useState(false);
   const reducedMotion = useReducedMotion();
   const compass = useRef<SVGSVGElement>(null);
 
@@ -253,7 +262,10 @@ export function Huddle({
         onSelect={pick}
         resetKey={resetKey}
         reducedMotion={reducedMotion}
-        onInteract={() => setCompact(true)}
+        onInteract={() => {
+          setCompact(true);
+          if (!playing) setScheduleCompact(true);
+        }}
         onHeading={(h) => {
           if (compass.current) compass.current.style.transform = `rotate(${h}rad)`;
         }}
@@ -412,6 +424,9 @@ export function Huddle({
         last={last}
         today={today}
         work={work}
+        phases={trackPhases}
+        compact={scheduleCompact}
+        onExpand={() => setScheduleCompact(false)}
         notes={dayNotes}
         playing={playing}
         speed={speed}
