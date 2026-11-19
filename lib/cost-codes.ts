@@ -83,7 +83,6 @@ export function costCodeFor(kind: Kind, xactCode: string | null, description: st
 /** The section each production day template works in, for percent complete. */
 export const templateCostCode: Record<string, CostCode> = {
   "insulate-crawlspace": "07 20 00",
-  "take-apart": "02 41 00",
   "build-cabinets": "06 40 00",
   "paint-walls": "09 90 00",
   "install-flooring": "09 60 00",

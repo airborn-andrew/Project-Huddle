@@ -1,10 +1,14 @@
 """Turn scope line items into production days.
 
-Each rule matches a line item description and names the day templates it
-belongs to and the part of the model it lights up. A rule with no templates
-marks a line item the homeowner never sees (labor minimums, materials, the
-dump trailer). A line item that matches no rule stops the build, so a new
-kind of work gets a rule before it reaches a homeowner.
+A production day is a trade's work on the house, never a single line item.
+Each rule matches a line item description and names the day template its
+trade belongs to and the part of the model it lights up. Support work has no
+template: detach and reset, moving contents, protection, material only, labor
+minimums, supply lines and haul-off are part of the trade day they serve, so
+the homeowner never sees them as work of their own. Tearing out a damaged
+finish is part of the day its trade puts back. A line item that matches no
+rule stops the build, so a new kind of work gets a rule before it reaches a
+homeowner.
 
 Template ids and their order match lib/templates.ts.
 """
@@ -15,11 +19,9 @@ import re
 
 TEMPLATES = [
     "insulate-crawlspace",
-    "take-apart",
     "build-cabinets",
     "paint-walls",
     "install-flooring",
-    "put-back",
     "hang-doors",
     "install-baseboard",
     "paint-trim",
@@ -27,11 +29,12 @@ TEMPLATES = [
     "final-walkthrough",
 ]
 
-TAKE_APART_AND_PUT_BACK = ("take-apart", "put-back")
-
-# (pattern, templates, category). First match wins.
+# (pattern, templates, category). First match wins, so support work comes first.
 RULES: list[tuple[str, tuple[str, ...], str | None]] = [
-    # Line items the homeowner never sees.
+    # Support work: part of the trade day it serves, never a day of its own.
+    (r"detach (&|and) reset|remove (&|and) reset|\bd&r\b", (), None),
+    (r"content manipulation|move out then reset|contents? - move|\bcontents\b", (), None),
+    (r"protect|mask|plastic cover|floor cover.*paper", (), None),
     (r"labor minimum", (), None),
     (r"^carpenter\b.*per hour", (), None),
     (r"material only", (), None),
@@ -50,13 +53,11 @@ RULES: list[tuple[str, tuple[str, ...], str | None]] = [
     # Baseboard and floors (quarter round mentions the flooring it sits on)
     (r"baseboard|quarter round|shoe mold", ("install-baseboard",), "Baseboard"),
     (r"vinyl plank|laminate|carpet|hardwood|floor covering|tile floor|^floor", ("install-flooring",), "Flooring"),
-    # Cabinets
-    (r"^remove cabinetry|^remove cabinet", ("take-apart",), "Cabinets"),
-    (r"^cabinet|face frame", ("build-cabinets",), "Cabinets"),
-    (r"countertop", TAKE_APART_AND_PUT_BACK, "Cabinets"),
-    # Appliances and plumbing fixtures that come out and go back
-    (r"dishwasher|refrigerator|range|oven|cooktop|microwave|disposal|washer|dryer", TAKE_APART_AND_PUT_BACK, "Appliances"),
-    (r"sink|faucet|toilet|vanity|p-trap|tub|shower", TAKE_APART_AND_PUT_BACK, "Fixtures"),
+    # Cabinets, vanities and their tops: the cabinet trade, tear-out included
+    (r"^remove cabinetry|^remove cabinet|^cabinet|face frame|vanity|countertop", ("build-cabinets",), "Cabinets"),
+    # Appliances and plumbing fixtures are set back as support work for the trades around them
+    (r"dishwasher|refrigerator|range|oven|cooktop|microwave|disposal|washer|dryer", (), None),
+    (r"sink|faucet|toilet|p-trap|tub|shower", (), None),
     # Cleaning
     (r"clean", ("final-clean",), "Clean"),
 ]
