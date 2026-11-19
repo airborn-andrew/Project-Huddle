@@ -47,6 +47,8 @@ When a job has work no template covers, add a template to `lib/templates.ts` and
 
 The project link is `/p/<slug>`.
 
+The app opens on a dark gray background with the day's work glowing white, and the room someone taps glows brighter on every wall. The moon button switches that device to a near-black background; each device remembers its choice.
+
 ## The OHI view
 
 The OHI code is the same on every project. It opens `/ohi`, the list of every project with where each one stands and a dot when the homeowner has posted something new, and from there each project's edit view at `/p/<slug>/edit`. On a phone, add `/ohi` to the home screen to open it like an app. The OHI code also works on any project's passcode screen. Every change there lands in a draft that only OHI sees; **Push to homeowner** publishes it. Undo steps back one change at a time until the next push, and the change log lists every edit with its time. Messages and the homeowner's change order answers are never drafted: they go live at once.

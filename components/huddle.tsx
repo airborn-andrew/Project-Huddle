@@ -10,6 +10,7 @@ import {
   Images,
   Layers,
   MessageCircle,
+  Moon,
   RotateCcw,
   SlidersHorizontal,
   Users,
@@ -28,6 +29,7 @@ import { useProject } from "@/lib/client";
 import { roomPhotos } from "@/lib/photos";
 import { calendarOf, expand, isoDate, lastDay, scheduleOf, workdayDate, workdayIndex, type Calendar } from "@/lib/sequence";
 import { templateById } from "@/lib/templates";
+import { useTheme } from "@/lib/theme";
 import { useView } from "@/lib/view";
 import type { Phase, Plan, ProjectState, Role, Room, ScheduledTask } from "@/lib/types";
 
@@ -64,6 +66,7 @@ export function Huddle({
   const mainLevel = plan.levels.find((l) => l.stack === 0)?.id;
   const [layers, setLayers] = useState({ photos: true, messages: true });
   const [layersOpen, setLayersOpen] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
   const [resetKey, setResetKey] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<Speed>(1);
@@ -315,6 +318,15 @@ export function Huddle({
               <ClipboardCheck />
             </button>
           )}
+          <button
+            type="button"
+            className="tool"
+            aria-label="Dark background"
+            aria-pressed={theme === "dark"}
+            onClick={toggleTheme}
+          >
+            <Moon />
+          </button>
           <button
             type="button"
             className="tool"

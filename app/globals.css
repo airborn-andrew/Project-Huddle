@@ -1,8 +1,9 @@
 :root {
   color-scheme: dark;
-  /* Black, white and gray only. */
-  --bg-top: #3a3a3d;
-  --bg-bottom: #0c0c0e;
+  /* Black, white and gray only. The default background is dark gray; Dark takes it to near-black. */
+  --bg-top: #5a5d62;
+  --bg-mid: #55585d;
+  --bg-bottom: #4a4c50;
   --ink: #f5f5f7;
   --secondary: rgba(235, 235, 245, 0.62);
   --tertiary: rgba(235, 235, 245, 0.32);
@@ -38,8 +39,14 @@ body {
   margin: 0;
 }
 
+[data-theme="dark"] {
+  --bg-top: #3a3a3d;
+  --bg-mid: #1f1f22;
+  --bg-bottom: #0c0c0e;
+}
+
 body {
-  background: radial-gradient(120% 90% at 50% 20%, var(--bg-top) 0%, #1f1f22 55%, var(--bg-bottom) 100%);
+  background: radial-gradient(120% 90% at 50% 20%, var(--bg-top) 0%, var(--bg-mid) 55%, var(--bg-bottom) 100%);
   color: var(--ink);
   font: var(--body);
   -webkit-font-smoothing: antialiased;
@@ -151,6 +158,10 @@ button {
 
 .tool:active {
   transform: scale(0.92);
+}
+
+.tool[aria-pressed="true"] {
+  background: var(--fill-strong);
 }
 
 .tool svg {

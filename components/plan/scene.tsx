@@ -215,6 +215,17 @@ function makeMaterials() {
     floorDim: solid("#030303", 0.4, 0.1),
     // The day's work: white, with no glow.
     activeFloor: solid("#b8b8bd", 0.5, 0),
+    // The room the homeowner tapped: every wall glows white, brighter than the day's work.
+    selectedWalls: new THREE.MeshStandardMaterial({
+      color: "#ffffff",
+      emissive: "#ffffff",
+      emissiveIntensity: 0.9,
+      roughness: 0.4,
+      transparent: true,
+      opacity: 0.7,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    }),
     activeLayer: new THREE.MeshStandardMaterial({
       color: "#ffffff",
       roughness: 0.6,
@@ -236,6 +247,7 @@ function pickMaterial(p: Part, look: RoomLook | undefined, m: Mats, selected: bo
   switch (p.kind) {
     case "walls":
       if (p.room === "house") return out(m.shell, 0.65);
+      if (selected) return out(m.selectedWalls, 1);
       // A room's wall finish shows once it is painted or while paint is underway.
       if (state === "active") return out(m.activeLayer);
       return out(m.finish, false, state === "done");
