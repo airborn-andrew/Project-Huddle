@@ -38,6 +38,12 @@ export default async function ProjectsPage() {
       ) : (
         <p className="projects-empty">No projects yet.</p>
       )}
+      <div className="group group-list">
+        <Link className="link-row" href="/ohi/bots">
+          Bots
+          <ChevronRight />
+        </Link>
+      </div>
     </main>
   );
 }
