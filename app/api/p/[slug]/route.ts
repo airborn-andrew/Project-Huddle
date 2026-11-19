@@ -1,6 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { roleOn } from "@/lib/access";
+import { recordEvents } from "@/lib/ledger";
 import { notifyOhi } from "@/lib/notify";
 import { getProject } from "@/lib/projects";
 import { calendarOf, dayFormat, defaultSchedule, phaseTitle, workdayDate } from "@/lib/sequence";
@@ -290,7 +291,10 @@ export async function POST(request: Request, { params }: Params) {
     if (role === "home") {
       const update = homeownerUpdate(action, before, state, new URL(request.url).origin, slug);
       const project = (await getProject(slug))?.name ?? "Project Huddle";
-      if (update) after(() => notifyOhi({ project, ...update }).catch((e) => console.error(e)));
+      if (update) {
+        after(() => notifyOhi({ project, ...update }).catch((e) => console.error(e)));
+        after(() => recordEvents(slug, { kind: "ohi" }, [{ type: "homeowner", data: { text: update.what } }]).catch((e) => console.error(e)));
+      }
     }
     return NextResponse.json(forRole(state, role));
   }
@@ -299,8 +303,13 @@ export async function POST(request: Request, { params }: Params) {
   const data = await getProject(slug);
   if (!data) return NextResponse.json({ error: "no project" }, { status: 404 });
 
+  let changes: string[] = [];
   const state = await updateState(slug, (s) => {
-    const stamp = (line: string) => s.log.unshift({ at: now(), text: line });
+    changes = [];
+    const stamp = (line: string) => {
+      s.log.unshift({ at: now(), text: line });
+      changes.push(line);
+    };
 
     if (action === "push") {
       if (!s.draft) return;
@@ -330,6 +339,11 @@ export async function POST(request: Request, { params }: Params) {
     }
     s.log = s.log.slice(0, LOG_LIMIT);
   });
+  // The change log lines also go to the job's event feed, for the bots following the job.
+  if (changes.length) {
+    const events = changes.map((text) => ({ type: "edit", data: { text } }));
+    after(() => recordEvents(slug, { kind: "ohi" }, events).catch((e) => console.error(e)));
+  }
 
   return NextResponse.json(forRole(state, role));
 }

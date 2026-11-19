@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Minus, Plus, Undo2, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Costing } from "@/components/costing";
 import { PhotoButton } from "@/components/photo-button";
 import { useProject } from "@/lib/client";
 import {
@@ -159,6 +160,8 @@ export function Editor({
       <CloseoutEditor rooms={rooms} editable={d} act={run} />
 
       <PeopleEditor schedule={schedule} rooms={rooms} editable={d} act={run} />
+
+      <Costing slug={slug} />
 
       {state.log.length > 0 && (
         <>

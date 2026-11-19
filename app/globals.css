@@ -1682,3 +1682,38 @@ textarea.field {
   width: 22px;
   height: 22px;
 }
+
+/* ---------- Job costing ---------- */
+
+.cost-figure {
+  font-variant-numeric: tabular-nums;
+}
+
+.edit [data-warn] {
+  color: #ff9f0a;
+}
+
+.cost-error {
+  margin: 0 4px 10px;
+  color: #ff9f0a;
+  font: var(--footnote);
+}
+
+.cost-move {
+  max-width: 44%;
+  flex: none;
+}
+
+.cost-input {
+  width: 120px;
+  text-align: right;
+}
+
+.cost-code {
+  white-space: nowrap;
+}
+
+.cost-method {
+  min-width: 0;
+  max-width: 62%;
+}

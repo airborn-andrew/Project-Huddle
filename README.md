@@ -17,6 +17,10 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | `public/models/<slug>.glb` | The 3D model from the sketch, every level stacked; nodes are named `<level>__<room>__<part>` |
 | `pipeline/dxf_to_plan.py` | Sketch DXF and scope PDF to `plan.json`, `days.json` and `.glb` |
 | `pipeline/scope.py`, `pipeline/day_rules.py` | Reading the scope, and the rules that turn its line items into production days |
+| `pipeline/components.py` | Reading the Xactimate Components report into the job's insurance budget |
+| `lib/costing.ts`, `lib/cost-codes.ts` | Every job costing calculation, and the CSI MasterFormat sections components land in |
+| `lib/ledger.ts`, `lib/tasks.ts`, `lib/agents.ts` | The costing ledger and its approval rules, the task queue, and the bots' tokens |
+| `app/api/agent` | The bot API; `GET /api/agent` describes it |
 
 ## Adding a project
 
@@ -58,6 +62,25 @@ From the OHI view you can:
 - **Schedule:** set the start date and off days; move a production day, change its length (later days move with it), add one from the templates, remove one, change its rooms, mark it done, and rewrite what to expect for this project.
 - **Content:** post notes and photos to a day, a room or both; create, edit and withdraw change orders; fill in closeout.
 - **People:** set the project manager and the subs, and the production days each sub is on site.
+
+## Job costing
+
+Each project's edit view has a Job costing section that only OHI sees. It sets the insurance money in each CSI MasterFormat section against what OHI has committed and spent, and shows the margin left by section and for the job. Sections below the job's margin floor show in orange.
+
+- **Insurance budget:** the Components report of the carrier-approved estimate. `python pipeline/components.py <components.pdf>` reads it, checks every page adds up to its printed total, and prints the JSON for `POST /api/agent/jobs/<slug>/budget`. Each component lands in a section by `lib/cost-codes.ts`; one no rule covers stays unassigned until it is moved. Approving a new import replaces the one before it.
+- **Supplements, commitments and actual costs** are entries against a section. Accepting a bid means approving its commitment.
+- **Cost to complete** follows the commitments not yet paid, or with nothing committed, the insurance money not yet spent. OHI can set it for a section instead.
+- **Overhead and profit** from the approved estimate is entered under Job settings and counts toward the job's revenue.
+
+### Bots
+
+Bots work through `/api/agent` with their own token, made on the Bots screen (`/ohi/bots`). A bot's budget imports and entries wait in the approval queue until OHI approves them; its notes, flags and line moves land at once. Nothing a bot writes reaches the homeowner.
+
+Work goes to bots as tasks. Flagging a section for re-bid queues a quote request with that section's scope; Give to a bot queues a bid or components report to read. A bot claims a task with `GET /api/agent/tasks/next` and answers with `POST /api/agent/tasks/<id>`; a result that does not match the task's shape is refused and the task goes back in the queue, up to three tries before it fails and OHI gets a note. A bot with a webhook is pinged when a task it takes is queued. Manual mode on a job holds its tasks until they are released, and the switch on the Bots screen stops every task going out.
+
+Every OHI edit, homeowner update and costing change is also recorded as an event, which bots read with `GET /api/agent/jobs/<slug>/changes`.
+
+The tables are in `supabase/migrations/20261119000000_job_costing.sql`; apply it before using job costing.
 
 ## Environment variables
 
