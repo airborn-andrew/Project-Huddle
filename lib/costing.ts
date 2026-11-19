@@ -23,6 +23,14 @@ export type BudgetLine = {
 
 export type EntryType = "budget_change" | "commitment" | "actual";
 
+/**
+ * Where an entry stands against the carrier-approved estimate. in_scope: its
+ * section is in the approved estimate, or OHI released it. review: its section
+ * is not, and it waits for OHI. homeowner: waiting on the homeowner's answer to
+ * a priced change order. supplement: waiting on the carrier. discarded: dropped.
+ */
+export type EntryScope = "in_scope" | "review" | "homeowner" | "supplement" | "discarded";
+
 export type CostEntry = {
   id: string;
   slug: string;
@@ -34,10 +42,15 @@ export type CostEntry = {
   source: string | null;
   reason: string | null;
   status: "proposed" | "approved" | "rejected";
+  scope: EntryScope;
+  covers: string[];
+  change_order: string | null;
   created_by: string;
   created_at: string;
   decided_by: string | null;
   decided_at: string | null;
+  scope_decided_by: string | null;
+  scope_decided_at: string | null;
 };
 
 export type TradeMethod = "crew" | "sub" | "supplier_crew";

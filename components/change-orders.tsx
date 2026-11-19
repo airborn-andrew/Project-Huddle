@@ -6,6 +6,7 @@ import { Sheet } from "@/components/sheet";
 import type { ChangeOrder, Photo, ProjectState, Role } from "@/lib/types";
 
 const date = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" });
+const usd = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 const choiceText = { yes: "Yes", no: "No", other: "Something else" } as const;
 
 type Act = (action: string, body?: Record<string, unknown>) => Promise<boolean>;
@@ -55,6 +56,7 @@ function Card({ slug, role, co, act }: { slug: string; role: Role; co: ChangeOrd
   return (
     <article className="group">
       <h3>{co.title}</h3>
+      {co.price !== undefined && <p className="co-price">{usd.format(co.price)}</p>}
       {co.body && <p>{co.body}</p>}
       <Thumbs photos={co.photos} />
       {co.answer ? (

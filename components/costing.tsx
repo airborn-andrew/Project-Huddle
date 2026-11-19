@@ -87,6 +87,7 @@ export function Costing({ slug }: { slug: string }) {
         <Figure label="Spent" value={t.actual} />
       </div>
 
+      <ScopeGate view={view} post={post} />
       <Approvals view={view} post={post} />
 
       <p className="label">By section</p>
@@ -159,6 +160,93 @@ function Approvals({ view, post }: { view: CostingView; post: Post }) {
         ))}
       </div>
     </>
+  );
+}
+
+/** Entries outside the carrier-approved estimate, and where each one waits. */
+function ScopeGate({ view, post }: { view: CostingView; post: Post }) {
+  const { review, homeowner, supplement } = view.scope;
+  if (!review.length && !homeowner.length && !supplement.length) return null;
+  return (
+    <>
+      <p className="label">Not in the approved estimate</p>
+      <div className="group group-list">
+        {review.map((e) => (
+          <Held key={e.id} entry={e} post={post} />
+        ))}
+        {supplement.map((e) => (
+          <Supplement key={e.id} entry={e} post={post} />
+        ))}
+        {homeowner.map((e) => (
+          <div key={e.id} className="edit-item">
+            <div>
+              <p className="edit-item-title">
+                {e.description} · {usd.format(e.amount)}
+              </p>
+              <p className="edit-item-meta">Waiting on the homeowner&apos;s answer to the change order</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+type Entry = CostingView["entries"][number];
+
+function Held({ entry, post }: { entry: Entry; post: Post }) {
+  const [pricing, setPricing] = useState(false);
+  const [price, setPrice] = useState(String(entry.amount));
+  return (
+    <div className="phase-body">
+      <p className="edit-item-title">
+        {entry.description} · {usd.format(entry.amount)}
+      </p>
+      <p className="edit-item-meta">{[entry.vendor, costCodeName(entry.cost_code), entry.created_by].filter(Boolean).join(" · ")}</p>
+      {pricing ? (
+        <div className="edit-inline">
+          <input className="field" inputMode="decimal" aria-label="Homeowner's price" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <button type="button" className="button" disabled={!(Number(price) > 0)} onClick={() => post("scope", { id: entry.id, choice: "homeowner", price: Number(price) })}>
+            Draft change order
+          </button>
+        </div>
+      ) : (
+        <div className="edit-actions scope-choices">
+          <button type="button" className="button button-quiet" onClick={() => post("scope", { id: entry.id, choice: "discard" })}>
+            Discard
+          </button>
+          <button type="button" className="button button-quiet" onClick={() => setPricing(true)}>
+            Homeowner pays
+          </button>
+          <button type="button" className="button button-quiet" onClick={() => post("scope", { id: entry.id, choice: "supplement" })}>
+            Supplement
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Supplement({ entry, post }: { entry: Entry; post: Post }) {
+  const [amount, setAmount] = useState("");
+  return (
+    <div className="phase-body">
+      <p className="edit-item-title">
+        {entry.description} · {usd.format(entry.amount)}
+      </p>
+      <p className="edit-item-meta">Supplement sent; waiting on the carrier</p>
+      <div className="edit-inline">
+        <input className="field" inputMode="decimal" placeholder="Approved amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
+        <button type="button" className="button" disabled={!(Number(amount) > 0)} onClick={() => post("supplement", { id: entry.id, approved: true, amount: Number(amount) })}>
+          Carrier approved
+        </button>
+      </div>
+      <div className="edit-actions">
+        <button type="button" className="button button-quiet" onClick={() => post("supplement", { id: entry.id, approved: false })}>
+          Denied
+        </button>
+      </div>
+    </div>
   );
 }
 
