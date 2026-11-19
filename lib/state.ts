@@ -19,6 +19,7 @@ export const defaultState = (): ProjectState => ({
   notes: [],
   expect: {},
   changeOrders: [],
+  selections: [],
   photos: {},
   closeout: { warranty: "", punch: [], documents: [] },
   people: { pm: { name: "Andrew Pearson" }, subs: [] },
@@ -36,6 +37,7 @@ const editableKeys = [
   "notes",
   "expect",
   "changeOrders",
+  "selections",
   "photos",
   "closeout",
   "people",
@@ -51,7 +53,12 @@ export function forRole(s: ProjectState, role: Role): ProjectState {
   return role === "ohi" ? s : { ...s, draft: null, undo: [], log: [], ohiSeen: null };
 }
 
-const withDefaults = (state: Partial<ProjectState>): ProjectState => ({ ...defaultState(), ...state });
+/** Fills fields added after a project was saved, in the published state, OHI's draft and its undo steps. */
+const withDefaults = (state: Partial<ProjectState>): ProjectState => {
+  const filled = { ...defaultState(), ...state };
+  const fill = (e: Editable) => ({ ...editable(defaultState()), ...e });
+  return { ...filled, draft: filled.draft && fill(filled.draft), undo: filled.undo.map(fill) };
+};
 
 async function readRow(slug: string): Promise<{ state: ProjectState; version: number | null }> {
   const client = db();

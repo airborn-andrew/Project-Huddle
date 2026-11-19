@@ -57,6 +57,7 @@ From the OHI view you can:
 
 - **Schedule:** set the start date and off days; move a production day, change its length (later days move with it), add one from the templates, remove one, change its rooms, mark it done, and rewrite what to expect for this project.
 - **Content:** post notes and photos to a day, a room or both; create, edit and withdraw change orders; fill in closeout.
+- **Selections:** record what the homeowner picked at the showroom (flooring, tile, countertops, cabinets, fixtures, appliances) with the product, its color or style, a room if it belongs to one, and screenshots. The homeowner sees them under Selections, with no prices.
 - **People:** set the project manager and the subs, and the production days each sub is on site.
 
 ## Environment variables

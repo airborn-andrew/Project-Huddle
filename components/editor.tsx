@@ -17,7 +17,18 @@ import {
   type Calendar,
 } from "@/lib/sequence";
 import { templateById, templates } from "@/lib/templates";
-import type { Editable, Phase, PhaseEdit, Photo, Plan, ProjectState, Room } from "@/lib/types";
+import {
+  selectionCategories,
+  type Editable,
+  type Phase,
+  type PhaseEdit,
+  type Photo,
+  type Plan,
+  type ProjectState,
+  type Room,
+  type Selection,
+  type SelectionCategory,
+} from "@/lib/types";
 
 type Act = (action: string, body?: Record<string, unknown>) => Promise<boolean>;
 
@@ -147,6 +158,8 @@ export function Editor({
       )}
 
       <ChangeOrdersEditor slug={slug} editable={d} act={run} />
+
+      <SelectionsEditor slug={slug} rooms={rooms} editable={d} act={run} />
 
       <p className="label">Messages</p>
       <div className="group">
@@ -513,6 +526,120 @@ function ChangeOrdersEditor({ slug, editable, act }: { slug: string; editable: E
         >
           Add change order
         </button>
+      </div>
+    </>
+  );
+}
+
+type SelectionForm = { category: SelectionCategory | ""; name: string; style: string; room: string; photos: Photo[] };
+
+const blankSelection: SelectionForm = { category: "", name: "", style: "", room: "", photos: [] };
+
+function SelectionsEditor({ slug, rooms, editable, act }: { slug: string; rooms: Room[]; editable: Editable; act: Act }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm] = useState<SelectionForm>(blankSelection);
+  const roomName = (id?: string) => rooms.find((r) => r.id === id)?.name;
+  const startEdit = (s: Selection | null) => {
+    setEditing(s?.id ?? "new");
+    setForm(s ? { category: s.category, name: s.name, style: s.style ?? "", room: s.room ?? "", photos: s.photos } : blankSelection);
+  };
+
+  return (
+    <>
+      <p className="label">Selections</p>
+      <div className="group group-list">
+        {editable.selections.map((s) =>
+          editing === s.id ? null : (
+            <div key={s.id} className="edit-item">
+              <div>
+                <p className="edit-item-title">{s.name}</p>
+                <p className="edit-item-meta">
+                  {[s.category, s.style, roomName(s.room), s.photos.length ? `${s.photos.length} photo${s.photos.length > 1 ? "s" : ""}` : ""]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
+              </div>
+              <span className="edit-item-actions">
+                <button type="button" className="link" onClick={() => startEdit(s)}>
+                  Edit
+                </button>
+                <button type="button" className="link" onClick={() => act("removeSelection", { id: s.id })}>
+                  Remove
+                </button>
+              </span>
+            </div>
+          ),
+        )}
+        {editing ? (
+          <div className="phase-body">
+            <select
+              className="field"
+              aria-label="Kind of finish"
+              value={form.category}
+              onChange={(e) => setForm({ ...form, category: e.target.value as SelectionCategory })}
+            >
+              <option value="">Choose the finish</option>
+              {selectionCategories.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <input className="field" placeholder="Product" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input className="field" placeholder="Color or style" value={form.style} onChange={(e) => setForm({ ...form, style: e.target.value })} />
+            <div className="edit-inline">
+              <PhotoButton slug={slug} onAdd={(p) => setForm((f) => ({ ...f, photos: [...f.photos, ...p].slice(0, 6) }))} />
+              <select className="field" aria-label="Room" value={form.room} onChange={(e) => setForm({ ...form, room: e.target.value })}>
+                <option value="">Whole house</option>
+                {rooms.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {form.photos.length > 0 && (
+              <div className="photos">
+                {form.photos.map((p) => (
+                  <button
+                    key={p.url}
+                    type="button"
+                    className="photo-remove"
+                    aria-label="Remove photo"
+                    onClick={() => setForm((f) => ({ ...f, photos: f.photos.filter((x) => x.url !== p.url) }))}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={p.url} alt="" />
+                    <X />
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="edit-actions">
+              <button
+                type="button"
+                className="button"
+                disabled={!form.category || !form.name.trim()}
+                onClick={async () => {
+                  if (await act("selection", { id: editing === "new" ? undefined : editing, ...form, room: form.room || undefined })) {
+                    setEditing(null);
+                  }
+                }}
+              >
+                Save
+              </button>
+              <button type="button" className="button button-quiet" onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="phase-body">
+            <button type="button" className="button" onClick={() => startEdit(null)}>
+              Add a selection
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
