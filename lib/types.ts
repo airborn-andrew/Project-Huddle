@@ -79,7 +79,22 @@ export type ChangeOrder = {
   answer?: { choice: "yes" | "no" | "other"; note?: string; photos: Photo[]; at: string };
 };
 
-export type PunchItem = { id: string; room?: string; text: string; done: boolean };
+/** The kinds of finish the homeowner picks at the supplier's showroom, in the order they show. */
+export const selectionCategories = ["Flooring", "Tile", "Countertops", "Cabinets", "Fixtures", "Appliances"] as const;
+
+export type SelectionCategory = (typeof selectionCategories)[number];
+
+/** What the homeowner picked, with OHI's screenshots of it. No prices. */
+export type Selection = {
+  id: string;
+  category: SelectionCategory;
+  name: string;
+  style?: string;
+  room?: string;
+  photos: Photo[];
+};
+
+export type PunchItem ={ id: string; room?: string; text: string; done: boolean };
 
 export type Closeout = {
   walkthrough?: string;
@@ -105,6 +120,7 @@ export type Editable = {
   /** Expect lines rewritten for this project, by template id. */
   expect: Record<string, string>;
   changeOrders: ChangeOrder[];
+  selections: Selection[];
   photos: Record<string, Photo[]>;
   closeout: Closeout;
   people: People;

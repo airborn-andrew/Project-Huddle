@@ -6,7 +6,7 @@ import { getProject } from "@/lib/projects";
 import { calendarOf, dayFormat, defaultSchedule, phaseTitle, workdayDate } from "@/lib/sequence";
 import { editable, forRole, readState, updateState } from "@/lib/state";
 import { templateById } from "@/lib/templates";
-import type { Category, Editable, Phase, Photo, Plan, ProjectState, Role } from "@/lib/types";
+import { selectionCategories, type Category, type Editable, type Phase, type Photo, type Plan, type ProjectState, type Role } from "@/lib/types";
 
 type Params = { params: Promise<{ slug: string }> };
 
@@ -175,6 +175,23 @@ const ohi: Record<string, (d: Editable, b: Body, c: Ctx) => void> = {
     if (!co || co.answer) return;
     d.changeOrders = d.changeOrders.filter((x) => x !== co);
     c.log(`Withdrew change order “${co.title}”`);
+  },
+  selection(d, b, c) {
+    const category = selectionCategories.find((x) => x === b.category);
+    const name = text(b.name, 120);
+    if (!category || !name) return;
+    const room = c.plan.rooms.find((r) => r.id === b.room)?.id;
+    const fields = { category, name, style: text(b.style, 120) || undefined, room, photos: photos(b.photos) };
+    const existing = d.selections.find((x) => x.id === b.id);
+    if (existing) Object.assign(existing, fields);
+    else d.selections.push({ id: id(), ...fields });
+    c.log(`${existing ? "Updated" : "Added"} the ${category.toLowerCase()} selection “${name}”`);
+  },
+  removeSelection(d, b, c) {
+    const selection = d.selections.find((x) => x.id === b.id);
+    if (!selection) return;
+    d.selections = d.selections.filter((x) => x !== selection);
+    c.log(`Removed the ${selection.category.toLowerCase()} selection “${selection.name}”`);
   },
   warranty(d, b, c) {
     d.closeout.warranty = text(b.warranty, 4000);

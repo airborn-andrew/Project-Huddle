@@ -11,6 +11,7 @@ import {
   Layers,
   MessageCircle,
   Moon,
+  Palette,
   RotateCcw,
   SlidersHorizontal,
   Users,
@@ -24,6 +25,7 @@ import { CloseoutSheet } from "@/components/closeout";
 import { Connector } from "@/components/connector";
 import { PeopleSheet } from "@/components/people";
 import { PhotosSheet } from "@/components/photos";
+import { SelectionsSheet } from "@/components/selections";
 import type { LayerState, RoomLook } from "@/components/plan/scene";
 import { useProject } from "@/lib/client";
 import { roomPhotos } from "@/lib/photos";
@@ -313,6 +315,11 @@ export function Huddle({
               <FileSignature />
             </button>
           )}
+          {state.selections.length > 0 && (
+            <button type="button" className="tool" aria-label="Selections" onClick={() => openSheet("selections")}>
+              <Palette />
+            </button>
+          )}
           {hasCloseout && (
             <button type="button" className="tool" aria-label="Closeout" onClick={() => openSheet("closeout")}>
               <ClipboardCheck />
@@ -435,6 +442,7 @@ export function Huddle({
       {sheet === "changes" && (
         <ChangeOrders slug={slug} role={role} state={state} act={act} onClose={back} />
       )}
+      {sheet === "selections" && <SelectionsSheet rooms={plan.rooms} state={state} onClose={back} />}
       {sheet === "photos" && <PhotosSheet rooms={plan.rooms} state={state} onClose={back} />}
       {sheet === "team" && (
         <PeopleSheet people={state.people} schedule={schedule} rooms={plan.rooms} cal={cal} onClose={back} />
