@@ -1667,22 +1667,6 @@ textarea.field {
   color: var(--tertiary);
 }
 
-.edit-up {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin: 0 0 8px -6px;
-  min-height: 44px;
-  color: var(--ink);
-  font: var(--body);
-  text-decoration: none;
-}
-
-.edit-up svg {
-  width: 22px;
-  height: 22px;
-}
-
 /* ---------- Job costing ---------- */
 
 .cost-figure {
@@ -1716,4 +1700,20 @@ textarea.field {
 .cost-method {
   min-width: 0;
   max-width: 62%;
+}
+
+.edit-up {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 0 8px -6px;
+  min-height: 44px;
+  color: var(--ink);
+  font: var(--body);
+  text-decoration: none;
+}
+
+.edit-up svg {
+  width: 22px;
+  height: 22px;
 }
