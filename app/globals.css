@@ -1,12 +1,12 @@
 :root {
   color-scheme: dark;
-  /* Black, white and gray only. The default background is dark gray; Dark takes it to near-black. */
-  --bg-top: #5a5d62;
-  --bg-mid: #55585d;
-  --bg-bottom: #4a4c50;
-  --ink: #f5f5f7;
-  --secondary: rgba(235, 235, 245, 0.62);
-  --tertiary: rgba(235, 235, 245, 0.32);
+  /* Black, white and gray only. The default background is graphite fading to near-black; Dark takes it to true black. */
+  --bg-top: #3c3e42;
+  --bg-mid: #26282b;
+  --bg-bottom: #0e0f10;
+  --ink: #ffffff;
+  --secondary: rgba(235, 235, 245, 0.6);
+  --tertiary: rgba(235, 235, 245, 0.3);
   --hairline: rgba(255, 255, 255, 0.14);
   --fill: rgba(255, 255, 255, 0.08);
   --fill-strong: rgba(255, 255, 255, 0.16);
@@ -48,9 +48,9 @@ body {
 }
 
 [data-theme="dark"] {
-  --bg-top: #3a3a3d;
-  --bg-mid: #1f1f22;
-  --bg-bottom: #0c0c0e;
+  --bg-top: #1c1c1e;
+  --bg-mid: #0a0a0b;
+  --bg-bottom: #000000;
 }
 
 body {

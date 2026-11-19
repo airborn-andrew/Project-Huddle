@@ -12,11 +12,11 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#5a5d62",
+  themeColor: "#3c3e42",
 };
 
 /** Applies a saved Dark choice before the first paint, so the page never flashes gray. */
-const themeScript = `try{if(localStorage.getItem("huddle-theme")==="dark"){document.documentElement.dataset.theme="dark";document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#3a3a3d")}}catch(e){}`;
+const themeScript = `try{if(localStorage.getItem("huddle-theme")==="dark"){document.documentElement.dataset.theme="dark";document.querySelector('meta[name="theme-color"]')?.setAttribute("content","#1c1c1e")}}catch(e){}`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
