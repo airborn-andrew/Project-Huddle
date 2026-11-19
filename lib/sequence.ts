@@ -12,7 +12,7 @@ export const calendarOf = (s: Pick<Editable, "startDate" | "offDays">): Calendar
 /** The project's production days laid end to end in trade order, from day 0. */
 export function defaultSchedule(phases: Phase[]): PhaseEdit[] {
   let start = 0;
-  return phases.map((p) => {
+  return phases.filter((p) => templateById(p.template)).map((p) => {
     const days = templateById(p.template)?.days ?? 1;
     const phase = { id: p.template, template: p.template, rooms: p.rooms, start, days, done: false };
     start += days;
@@ -20,8 +20,12 @@ export function defaultSchedule(phases: Phase[]): PhaseEdit[] {
   });
 }
 
-/** The schedule in force: OHI's edits, or the project's production days laid end to end. */
-export const scheduleOf = (s: Pick<Editable, "schedule">, phases: Phase[]) => s.schedule ?? defaultSchedule(phases);
+/**
+ * The schedule in force: OHI's edits, or the project's production days laid end
+ * to end. A day whose template has been retired is left out.
+ */
+export const scheduleOf = (s: Pick<Editable, "schedule">, phases: Phase[]) =>
+  s.schedule ? s.schedule.filter((p) => templateById(p.template)) : defaultSchedule(phases);
 
 /** One task per room per production phase, placed on its workdays. */
 export function expand(schedule: PhaseEdit[], rooms: Room[]): ScheduledTask[] {

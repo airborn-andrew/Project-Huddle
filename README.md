@@ -45,7 +45,9 @@ The sketch sets where each door and window is and how wide. The scope sets wheth
 
 ### Production days
 
-The homeowner sees production days, never line items. Each line item in the scope matches one rule in `pipeline/day_rules.py`, which names the day templates it belongs to; a project's `phases` keep only the templates and the rooms each one covers. The words the homeowner reads for each template live in `lib/templates.ts`. Every job ends with a final walkthrough day.
+The homeowner sees production days, never line items. A production day is a trade's work on the house: insulation, cabinets, paint, flooring, doors, baseboard and trim, cleaning, and the final walkthrough. Support work never gets a day of its own: detach and reset, moving contents, protection, material only, labor minimums, supply lines and haul-off are part of the trade day they serve, and tearing out a damaged finish is part of the day its trade puts back. Appliances and plumbing fixtures are set back as support work, and vanities and countertops belong to the cabinet day.
+
+Each line item in the scope matches one rule in `pipeline/day_rules.py`, which names the day template its trade belongs to, or none for support work; a project's `phases` keep only the templates and the rooms each one covers. The words the homeowner reads for each template live in `lib/templates.ts`. Every job ends with a final walkthrough day.
 
 When a job has work no template covers, add a template to `lib/templates.ts` and `pipeline/day_rules.py` (same id, same order), then a rule for the line item. Every later job reuses it.
 
