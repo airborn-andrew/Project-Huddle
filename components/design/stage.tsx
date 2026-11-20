@@ -79,11 +79,14 @@ export function Stage(props: Props) {
 
 function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, onReady, onPieceDown, onSelect, onRotate }: Props) {
   const { camera, gl, size } = useThree();
+  // Every save brings a fresh copy of the room, so the room is known by its walls, not by the copy.
+  const roomKey = shell.walls.join(";");
   const bounds = useMemo(() => {
     const xs = shell.walls.map(([x]) => x);
     const ys = shell.walls.map(([, y]) => y);
     return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
-  }, [shell]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the walls, by value
+  }, [roomKey]);
   const center = useMemo(
     () => new THREE.Vector3(((bounds.minX + bounds.maxX) / 2) * FT, 0, (-(bounds.minY + bounds.maxY) / 2) * FT),
     [bounds],
@@ -119,35 +122,44 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
     });
   }, [camera, gl, onReady, center]);
 
-  // Frame the room above the dock.
+  // How the room fits the screen above the dock.
   const roomW = (bounds.maxX - bounds.minX) * FT;
   const roomD = (bounds.maxY - bounds.minY) * FT;
   const usable = Math.max(200, size.height - dockHeight - 110);
   const zoom = Math.min(size.width / (roomW + 3), usable / (roomD + 3));
-  // Shift the view so the room sits in the space above the dock.
-  const lift = ((dockHeight - 40) / 2 / zoom) * 1;
+  const fit = useRef({ zoom, width: size.width, height: size.height });
+  fit.current = { zoom, width: size.width, height: size.height };
 
+  // The view is framed when the room opens and when plan and 3D switch, and
+  // otherwise stays wherever the person put it, through every move and save.
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
+    const { zoom, width, height } = fit.current;
     if (mode === "plan") {
+      // Shift the view so the room sits in the space above the dock.
+      const lift = (dockHeight - 40) / 2 / zoom;
       c.target.set(center.x, 0, center.z + lift);
       camera.position.set(center.x, 40, center.z + lift);
       camera.up.set(0, 0, -1);
+      if (camera instanceof THREE.OrthographicCamera) {
+        camera.zoom = zoom;
+        camera.updateProjectionMatrix();
+      }
     } else {
       camera.up.set(0, 1, 0);
       // Far enough back that the whole room fits across the screen, looking down from the south.
-      const aspect = size.width / Math.max(1, size.height - dockHeight);
+      const aspect = width / Math.max(1, height - dockHeight);
       const half = Math.tan(THREE.MathUtils.degToRad(20));
       const across = Math.max(roomW, roomD) / 2 + 2;
       const reach = Math.max(across / (half * Math.min(1, aspect)), roomD) * 1.05;
       const dir = new THREE.Vector3(0.08, 0.78, 0.9).normalize();
-      c.target.set(center.x, 1.5 - (dockHeight / size.height) * 6, center.z);
+      c.target.set(center.x, 1.5 - (dockHeight / height) * 6, center.z);
       camera.position.copy(c.target).add(dir.multiplyScalar(reach));
     }
     camera.lookAt(c.target);
     c.update();
-  }, [mode, center, camera, lift, roomW, roomD, size.width, size.height, dockHeight]);
+  }, [mode, center, camera, roomW, roomD, dockHeight]);
 
   // A press on a piece moves the piece, not the camera. This runs before the
   // camera controls see the press, so they never start panning.
@@ -188,7 +200,7 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
   return (
     <>
       {mode === "plan" ? (
-        <OrthographicCamera makeDefault zoom={zoom} near={0.1} far={200} position={[center.x, 40, center.z]} />
+        <OrthographicCamera makeDefault near={0.1} far={200} />
       ) : (
         <PerspectiveCamera makeDefault fov={40} near={0.1} far={400} />
       )}
