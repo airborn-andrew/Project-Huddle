@@ -1939,6 +1939,98 @@ textarea.field {
   white-space: nowrap;
 }
 
+.dock-tabs-piece {
+  margin-top: 10px;
+}
+
+.dock-action-text {
+  align-self: center;
+  max-width: 64px;
+  text-align: center;
+  white-space: normal;
+}
+
+.door-shape {
+  position: relative;
+  align-self: center;
+  width: 30px;
+  height: 42px;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+}
+
+.door-shape[data-style="shaker"]::after,
+.door-shape[data-style="raised"]::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.door-shape[data-style="raised"]::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.28);
+}
+
+.finish-swatch {
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 0 0 0.5px rgba(255, 255, 255, 0.3);
+}
+
+.sheet-foot {
+  display: flex;
+  padding: 8px 20px 16px;
+  border-top: 0.5px solid var(--hairline);
+  flex: none;
+}
+
+.sheet-foot .button {
+  flex: 1;
+  margin: 0;
+}
+
+.crop-hint {
+  margin: 0 0 12px;
+  color: var(--secondary);
+  font: var(--subhead);
+}
+
+.crop {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-small);
+  touch-action: none;
+}
+
+.crop img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.crop-square {
+  position: absolute;
+  border: 2px solid #ffffff;
+  border-radius: 4px;
+  box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.5);
+  cursor: grab;
+  touch-action: none;
+}
+
+.crop-size {
+  width: 100%;
+  margin-top: 16px;
+  accent-color: #ffffff;
+}
+
 .rotate-handle {
   display: grid;
   place-items: center;

@@ -65,6 +65,8 @@ Every project with a kitchen gets a Design Room, where the homeowner and OHI lay
 
 The pencil-and-ruler button on the project opens it at `/p/<slug>/design/<room>`. The room shows from above on a one-foot grid, or in 3D with the walls nearest the camera faded. The dock at the bottom holds the catalog: drag a piece up into the room, or tap it to place it in the first open spot along a wall. Cabinets and appliances turn to put their back on the nearest wall and close small gaps against their neighbors; islands stand where they are put. Tapping a piece opens it in the dock with its box size, Turn, Remove and the other sizes it can swap to. A piece that would overlap another or reach past a wall shows a red outline and goes back where it was.
 
+In 3D, cabinets show at real size with a toe kick, drawer and door fronts in the picked style (shaker, slab or raised panel), bar pulls and a countertop; appliances are stainless with black glass. Cabinets come in white, gray or black, or in the homeowner's own finish: a photo of the door sample from the showroom, cropped to a square and saved with the project's photos. Picking a cabinet adds Doors and Finish to the dock, each with Every cabinet to use it on the whole kitchen, and new cabinets take the style and finish most of the kitchen has.
+
 A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
 
 The tables are in `supabase/migrations/20261120000000_design_room.sql`.
