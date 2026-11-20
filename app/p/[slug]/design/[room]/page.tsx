@@ -13,7 +13,8 @@ export default async function DesignRoomPage({ params }: { params: Promise<{ slu
   const project = await getProject(slug);
   if (!project) notFound();
   const role = await roleOn(slug, await cookies());
-  if (!role) notFound();
+  // A prototype: OHI only for now.
+  if (role !== "ohi") notFound();
   const h = await headers();
   const origin = `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const opened = await openLayout(project, room, origin);
