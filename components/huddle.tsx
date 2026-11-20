@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Moon,
   Palette,
+  PencilRuler,
   RotateCcw,
   SlidersHorizontal,
   Users,
@@ -31,6 +32,7 @@ import { useProject } from "@/lib/client";
 import { roomPhotos } from "@/lib/photos";
 import { calendarOf, expand, isoDate, lastDay, phaseTitle, scheduleOf, workdayDate, workdayIndex, type Calendar } from "@/lib/sequence";
 import { templateById } from "@/lib/templates";
+import { designRooms } from "@/lib/design/layout";
 import { useTheme } from "@/lib/theme";
 import { useView } from "@/lib/view";
 import type { Phase, Plan, ProjectState, Role, Room, ScheduledTask } from "@/lib/types";
@@ -249,6 +251,7 @@ export function Huddle({
     );
   };
   const openChanges = state.changeOrders.filter((c) => !c.answer).length;
+  const designRoom = designRooms(plan)[0];
 
   return (
     <main className="huddle" style={{ "--levels-height": `${plan.levels.length * 32 + 8}px` } as React.CSSProperties}>
@@ -326,6 +329,11 @@ export function Huddle({
             >
               <FileSignature />
             </button>
+          )}
+          {designRoom && (
+            <Link className="tool" aria-label={`Design the ${designRoom.name.toLowerCase()}`} href={`/p/${slug}/design/${designRoom.id}`}>
+              <PencilRuler />
+            </Link>
           )}
           {state.selections.length > 0 && (
             <button type="button" className="tool" aria-label="Selections" onClick={() => openSheet("selections")}>

@@ -1768,6 +1768,211 @@ textarea.field {
   opacity: 0.4;
 }
 
+/* ---------- Design Room ---------- */
+
+.design {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.design-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.design-title > .tool {
+  flex: none;
+  margin-top: 2px;
+}
+
+.design .title {
+  font-size: clamp(24px, 6.6vw, 30px);
+}
+
+.tool:disabled {
+  opacity: 0.35;
+}
+
+.design-notice {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 92px);
+  left: 50%;
+  z-index: 12;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--radius-small);
+  color: var(--ink);
+  font: var(--subhead);
+  text-align: center;
+  transform: translateX(-50%);
+  animation: fade 300ms ease backwards;
+}
+
+.dock {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  width: min(640px, 100%);
+  padding: 14px 0 env(safe-area-inset-bottom);
+  border-radius: 28px 28px 0 0;
+  transform: translateX(-50%);
+  animation: slide 460ms var(--spring) backwards;
+}
+
+.dock-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 16px 0 20px;
+}
+
+.dock-title {
+  margin: 0;
+  font: var(--headline);
+}
+
+.dock-sub {
+  margin: 2px 0 0;
+  color: var(--secondary);
+  font: var(--footnote);
+}
+
+.dock-tabs {
+  display: flex;
+  gap: 18px;
+  padding: 0 20px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dock-tab {
+  padding: 2px 0 6px;
+  border: 0;
+  background: none;
+  color: var(--secondary);
+  font: var(--subhead);
+  white-space: nowrap;
+  transition: color 150ms ease;
+}
+
+.dock-tab[aria-pressed="true"] {
+  color: var(--ink);
+  font: var(--headline);
+}
+
+.dock-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 0 20px 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.dock-item,
+.dock-action {
+  display: grid;
+  flex: none;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  gap: 6px;
+  min-width: 76px;
+  height: 92px;
+  padding: 10px 10px 8px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: var(--fill);
+  color: var(--ink);
+  font: var(--footnote);
+  touch-action: pan-x;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background-color 160ms ease, transform 160ms var(--spring);
+}
+
+.dock-item:active,
+.dock-action:active {
+  transform: scale(0.95);
+}
+
+.dock-item[aria-pressed="true"] {
+  background: var(--fill-strong);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+.dock-item:disabled {
+  opacity: 0.4;
+}
+
+.dock-action svg {
+  align-self: center;
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.8;
+}
+
+.dock-item-shape {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.dock-item-shape > span {
+  display: block;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  border-bottom-width: 3px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dock-item-name {
+  white-space: nowrap;
+}
+
+.rotate-handle {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink);
+}
+
+.rotate-handle svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2;
+}
+
+.version-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.version-row .row-title,
+.version-row .row-when {
+  margin: 0;
+  text-align: left;
+}
+
+.version-row .button {
+  margin: 0;
+}
+
 /* ---------- Comfort settings ---------- */
 
 @media (prefers-reduced-motion: reduce) {

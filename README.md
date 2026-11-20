@@ -21,6 +21,8 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | `lib/costing.ts`, `lib/cost-codes.ts` | Every job costing calculation, and the CSI MasterFormat sections components land in |
 | `lib/ledger.ts`, `lib/tasks.ts`, `lib/agents.ts` | The costing ledger and its approval rules, the task queue, and the bots' tokens |
 | `app/api/agent` | The bot API; `GET /api/agent` describes it |
+| `app/p/[slug]/design/[room]` | The Design Room screen |
+| `components/design` | The Design Room: the room in plan and 3D, and the dock with the catalog and the picked piece |
 | `lib/design` | The Design Room: the cabinet and appliance catalog, layouts and their checks, and each room's walls, doors and windows from the sketch |
 | `app/api/p/[slug]/design/[room]` | A room's layout: read it, save it, and go back to an earlier version |
 
@@ -60,6 +62,8 @@ The app opens on a dark gray background with the day's work glowing white, and t
 ## The Design Room
 
 Every project with a kitchen gets a Design Room, where the homeowner and OHI lay out cabinets, appliances and an island in the real room. The first time a room opens, its walls come from the plan, its doors and windows from the 3D model, and its first layout from the cabinets and appliances the sketch already shows, each run filled with the fewest standard boxes. Walls, doors and windows never move.
+
+The pencil-and-ruler button on the project opens it at `/p/<slug>/design/<room>`. The room shows from above on a one-foot grid, or in 3D with the walls nearest the camera faded. The dock at the bottom holds the catalog: drag a piece up into the room, or tap it to place it in the first open spot along a wall. Cabinets and appliances turn to put their back on the nearest wall and close small gaps against their neighbors; islands stand where they are put. Tapping a piece opens it in the dock with its box size, Turn, Remove and the other sizes it can swap to. A piece that would overlap another or reach past a wall shows a red outline and goes back where it was.
 
 A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
 
