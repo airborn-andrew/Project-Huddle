@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Sheet } from "@/components/sheet";
 
 /**
@@ -21,6 +21,8 @@ export function AiSheet({
   const [text, setText] = useState("");
   const [problems, setProblems] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [canPaste, setCanPaste] = useState(false);
+  useEffect(() => setCanPaste(Boolean(navigator.clipboard?.readText)), []);
 
   const submit = async (value: string) => {
     if (!value.trim()) return;
@@ -54,7 +56,7 @@ export function AiSheet({
 
       <section className="ai-step">
         <h3 className="ai-step-title">Bring the changes back</h3>
-        <p className="ai-step-text">Upload the file your AI sends back, or paste its answer here.</p>
+        <p className="ai-step-text">Upload the file your AI sends back, or copy its answer and paste it here.</p>
         <label className="button button-quiet ai-file">
           Upload the file
           <input
@@ -68,7 +70,23 @@ export function AiSheet({
             }}
           />
         </label>
-        <textarea className="field" placeholder="Paste here" value={text} onChange={(e) => setText(e.target.value)} />
+        {canPaste && (
+          <button
+            type="button"
+            className="button button-quiet ai-file"
+            disabled={busy}
+            onClick={async () => {
+              const copied = await navigator.clipboard.readText().catch(() => "");
+              if (copied.trim()) {
+                setText(copied);
+                await submit(copied);
+              }
+            }}
+          >
+            Paste what you copied
+          </button>
+        )}
+        <textarea className="field" placeholder="Or paste here" value={text} onChange={(e) => setText(e.target.value)} />
         <button type="button" className="button" disabled={busy || !text.trim()} onClick={() => submit(text)}>
           Use these changes
         </button>
