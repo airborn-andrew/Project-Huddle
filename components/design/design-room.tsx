@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Box, Camera, Check, ChevronLeft, ClipboardList, Grid2x2, History, Lock, LockOpen, PencilLine, RotateCw, Sparkles, Trash2, Undo2, X } from "lucide-react";
+import { Box, Camera, Check, Rotate3d, ChevronLeft, ClipboardList, Grid2x2, History, Lock, LockOpen, PencilLine, RotateCw, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiSheet } from "@/components/design/ai-sheet";
 import { FinishCrop } from "@/components/design/finish-crop";
@@ -10,6 +10,7 @@ import { Sheet } from "@/components/sheet";
 import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
+import { arKind, openAr, type ArKind } from "@/lib/design/ar";
 import { layoutFile } from "@/lib/design/file";
 import { finishNames, planDxf, schedule, scheduleCsv } from "@/lib/design/schedule";
 import { useLive, type LiveConfig } from "@/lib/design/live";
@@ -67,6 +68,10 @@ export function DesignRoom({
   const [aiOpen, setAiOpen] = useState(false);
   const [readyOpen, setReadyOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [ar, setAr] = useState<ArKind>(null);
+  const [arBusy, setArBusy] = useState(false);
+  const [arProblem, setArProblem] = useState<string | null>(null);
+  useEffect(() => setAr(arKind()), []);
   const undo = useRef<Piece[][]>([]);
   const stage = useRef<StageApi | null>(null);
   const dock = useRef<HTMLDivElement>(null);
@@ -263,6 +268,32 @@ export function DesignRoom({
     }
   };
 
+  /** The cabinets at true size in the real kitchen, on phones that can show AR. */
+  const seeInKitchen = async () => {
+    const model = stage.current?.arModel();
+    if (!ar || !model || arBusy) return;
+    setArBusy(true);
+    try {
+      await openAr(
+        ar,
+        model,
+        async (glb) => {
+          const form = new FormData();
+          form.append("file", new File([glb], "room.glb", { type: "model/gltf-binary" }));
+          const res = await fetch(`/api/p/${slug}/design/${room}/ar`, { method: "POST", body: form });
+          if (!res.ok) throw new Error("upload");
+          return (await res.json()).url as string;
+        },
+        `${project} ${roomName}`,
+      );
+    } catch {
+      setArProblem("The kitchen could not open in AR. Try again in a moment.");
+      setTimeout(() => setArProblem(null), 5000);
+    } finally {
+      setArBusy(false);
+    }
+  };
+
   const download = (name: string, body: string, type: string) => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([body], { type }));
@@ -329,6 +360,11 @@ export function DesignRoom({
           >
             {mode === "plan" ? <Box /> : <Grid2x2 />}
           </button>
+          {ar && (
+            <button type="button" className="tool" aria-label="See it in your kitchen" disabled={arBusy} onClick={seeInKitchen}>
+              <Rotate3d />
+            </button>
+          )}
           {editable && (
             <button type="button" className="tool" aria-label="Share with your AI" onClick={() => setAiOpen(true)}>
               <Sparkles />
@@ -372,9 +408,16 @@ export function DesignRoom({
         </nav>
       </header>
 
-      {notice && (
-        <button type="button" className="design-notice glass" onClick={clearNotice}>
-          {notice}
+      {(notice || arProblem) && (
+        <button
+          type="button"
+          className="design-notice glass"
+          onClick={() => {
+            clearNotice();
+            setArProblem(null);
+          }}
+        >
+          {notice ?? arProblem}
         </button>
       )}
 

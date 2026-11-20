@@ -73,6 +73,8 @@ The sparkle button shares the room with the homeowner's own AI (ChatGPT, Grok or
 
 When the homeowner is happy, the check button sends the layout to OHI: OHI gets an email with a link to the room, and the layout holds still for the homeowner until they take it back with the pencil button. OHI's lock button locks it for ordering; a locked layout adds the clipboard button, which shows the cabinet schedule (one line per box, door style and finish, each with a tag) and downloads it as a CSV and as a DXF plan view of the room with every piece drawn and tagged, wall lengths, the schedule and a title block. Homeowner finish photos are numbered in the schedule and linked from the sheet. The lock button opens a locked layout again.
 
+On a phone that can show AR, the cube-in-motion button opens the cabinets, island, appliances and a thin outline of the room's walls on the floor at true size in the real kitchen: AR Quick Look on iPhone and iPad (a USDZ made in the browser) and Scene Viewer on Android (a GLB stored in Vercel Blob for it). Scaling is off on both, so a pinch cannot shrink the kitchen. Line up the outline's corner with the room's corner and everything else falls into place. It is meant to be walked through with the homeowner on site; the layout's own sizes stay the measure for clearances.
+
 A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
 
 The tables are in `supabase/migrations/20261120000000_design_room.sql`.
