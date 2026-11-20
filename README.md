@@ -21,6 +21,8 @@ A temporary web app OHI shares with a homeowner for one rebuild, from production
 | `lib/costing.ts`, `lib/cost-codes.ts` | Every job costing calculation, and the CSI MasterFormat sections components land in |
 | `lib/ledger.ts`, `lib/tasks.ts`, `lib/agents.ts` | The costing ledger and its approval rules, the task queue, and the bots' tokens |
 | `app/api/agent` | The bot API; `GET /api/agent` describes it |
+| `lib/design` | The Design Room: the cabinet and appliance catalog, layouts and their checks, and each room's walls, doors and windows from the sketch |
+| `app/api/p/[slug]/design/[room]` | A room's layout: read it, save it, and go back to an earlier version |
 
 ## Adding a project
 
@@ -54,6 +56,14 @@ When a job has work no template covers, add a template to `lib/templates.ts` and
 The project link is `/p/<slug>`.
 
 The app opens on a dark gray background with the day's work glowing white, and the room someone taps glows brighter on every wall. The moon button switches that device to a near-black background; each device remembers its choice.
+
+## The Design Room
+
+Every project with a kitchen gets a Design Room, where the homeowner and OHI lay out cabinets, appliances and an island in the real room. The first time a room opens, its walls come from the plan, its doors and windows from the 3D model, and its first layout from the cabinets and appliances the sketch already shows, each run filled with the fewest standard boxes. Walls, doors and windows never move.
+
+A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
+
+The tables are in `supabase/migrations/20261120000000_design_room.sql`.
 
 ## The OHI view
 
