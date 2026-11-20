@@ -2039,57 +2039,10 @@ textarea.field {
   accent-color: #ffffff;
 }
 
-.ai-step {
-  padding: 4px 0 20px;
-}
-
-.ai-step + .ai-step {
-  padding-top: 18px;
-  border-top: 0.5px solid var(--hairline);
-}
-
-.ai-step-title {
-  margin: 0;
-  font: var(--headline);
-}
-
-.ai-step-text {
+.sheet-text {
   margin: 4px 0 0;
   color: var(--secondary);
   font: var(--subhead);
-}
-
-.ai-step .button {
-  width: 100%;
-  margin-top: 12px;
-}
-
-.ai-file {
-  display: grid;
-  place-items: center;
-}
-
-.ai-step .ai-file {
-  background: var(--fill-strong);
-  color: var(--ink);
-}
-
-.ai-problems {
-  margin-top: 14px;
-  padding: 12px 14px;
-  border-radius: var(--radius-small);
-  background: var(--fill);
-  font: var(--subhead);
-}
-
-.ai-problems p {
-  margin: 0;
-}
-
-.ai-problems ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-  color: var(--secondary);
 }
 
 .sheet-foot-pair {

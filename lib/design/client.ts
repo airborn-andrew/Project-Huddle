@@ -111,25 +111,5 @@ export function useLayout(slug: string, room: string, initial: LayoutState, onSa
     [url, adopt],
   );
 
-  /** Saves a layout file back from an AI. Returns what is wrong with it, or null once it is saved. */
-  const upload = useCallback(
-    async (text: string): Promise<string[] | null> => {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "upload", text, version: saved.current.version }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (data.layout) {
-        adopt({ layout: data.layout, versions: data.versions ?? [] });
-        if (res.ok) saved$.current?.(data.layout.version);
-      }
-      if (res.ok) return null;
-      if (res.status === 409) return ["The layout changed while you were away. Send your AI the latest file and try again."];
-      return (data.problems as string[] | undefined) ?? [(data.error as string | undefined) ?? "That file could not be saved."];
-    },
-    [url, adopt],
-  );
-
-  return { layout: state.layout, versions: state.versions, save, restore, refresh, upload, setStatus, notice, clearNotice: () => setNotice(null) };
+  return { layout: state.layout, versions: state.versions, save, restore, refresh, setStatus, notice, clearNotice: () => setNotice(null) };
 }
