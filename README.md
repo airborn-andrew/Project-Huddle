@@ -71,6 +71,8 @@ Both sides edit together live. While someone drags a piece, the other screen sho
 
 The sparkle button shares the room with the homeowner's own AI (ChatGPT, Grok or any other). Send to your AI hands over the layout file and a 3D snapshot through the phone's share sheet, or downloads them on a computer. The file, built in `lib/design/file.ts`, opens with a short note in plain words, then the room, the catalog, door styles, finishes and the pieces. What comes back is uploaded as a file or pasted in, wrapped in other text or not; it is checked like any other save, and anything wrong is listed in plain words for the homeowner to hand back to the AI.
 
+When the homeowner is happy, the check button sends the layout to OHI: OHI gets an email with a link to the room, and the layout holds still for the homeowner until they take it back with the pencil button. OHI's lock button locks it for ordering; a locked layout adds the clipboard button, which shows the cabinet schedule (one line per box, door style and finish, each with a tag) and downloads it as a CSV and as a DXF plan view of the room with every piece drawn and tagged, wall lengths, the schedule and a title block. Homeowner finish photos are numbered in the schedule and linked from the sheet. The lock button opens a locked layout again.
+
 A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
 
 The tables are in `supabase/migrations/20261120000000_design_room.sql`.

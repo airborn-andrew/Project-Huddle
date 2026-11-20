@@ -2084,6 +2084,50 @@ textarea.field {
   color: var(--secondary);
 }
 
+.sheet-foot-pair {
+  gap: 10px;
+}
+
+.sheet-foot .button-quiet {
+  background: var(--fill-strong);
+  color: var(--ink);
+}
+
+.schedule {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--subhead);
+}
+
+.schedule th {
+  padding: 0 8px 8px 0;
+  color: var(--secondary);
+  font: var(--footnote);
+  text-align: left;
+}
+
+.schedule td {
+  padding: 9px 8px 9px 0;
+  border-top: 0.5px solid var(--hairline);
+  vertical-align: top;
+}
+
+.schedule-finishes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.schedule-finish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font: var(--subhead);
+  text-decoration: none;
+}
+
 .rotate-handle {
   display: grid;
   place-items: center;
