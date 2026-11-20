@@ -24,6 +24,8 @@ export type StageApi = {
   /** The point on the floor under a screen position, in room inches, or null off the floor. */
   toFloor: (clientX: number, clientY: number) => [number, number] | null;
   canvas: () => HTMLCanvasElement;
+  /** The cabinets, appliances and a floor outline at true scale in meters, centered on the room, for AR. */
+  arModel: () => THREE.Object3D | null;
 };
 
 type Props = {
@@ -87,6 +89,7 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
     [bounds],
   );
   const controls = useRef<OrbitControlsImpl>(null);
+  const arGroup = useRef<THREE.Group>(null);
 
   // Floor picking for drags, which follow the pointer outside the canvas's own events.
   useEffect(() => {
@@ -101,8 +104,20 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
         return ray.ray.intersectPlane(plane, hit) ? [hit.x / FT, -hit.z / FT] : null;
       },
       canvas: () => gl.domElement,
+      arModel() {
+        if (!arGroup.current) return null;
+        const model = arGroup.current.clone(true);
+        model.visible = true;
+        // Feet to meters, with the room's center at the origin on the floor.
+        const root = new THREE.Group();
+        model.position.set(-center.x, 0, -center.z);
+        root.add(model);
+        root.scale.setScalar(0.3048);
+        root.updateMatrixWorld(true);
+        return root;
+      },
     });
-  }, [camera, gl, onReady]);
+  }, [camera, gl, onReady, center]);
 
   // Frame the room above the dock.
   const roomW = (bounds.maxX - bounds.minX) * FT;
@@ -215,6 +230,19 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
         })}
       </group>
 
+      {/* What AR shows, kept ready and never drawn here. */}
+      <group ref={arGroup} visible={false}>
+        <Outline shell={shell} />
+        {pieces.map((p) => {
+          const item = catalogItem(p.item);
+          return item ? (
+            <group key={p.id} position={[p.x * FT, item.elevation * FT, -p.y * FT]} rotation-y={(p.rotation * Math.PI) / 180}>
+              <CabinetModel item={item} door={p.door} finish={p.finish} />
+            </group>
+          ) : null;
+        })}
+      </group>
+
       {chosen && editable && (
         <RotateHandle piece={chosen} onRotate={() => onRotate(chosen.id)} />
       )}
@@ -234,6 +262,29 @@ function Floor({ shell, mode }: { shell: Shell; mode: ViewMode }) {
     <mesh geometry={geometry} position-y={-0.01} receiveShadow>
       <meshStandardMaterial color={mode === "plan" ? "#1a1b1d" : "#3a3b3e"} roughness={mode === "plan" ? 0.85 : 0.55} />
     </mesh>
+  );
+}
+
+/** A thin line on the floor along the room's walls, so a corner in AR can be lined up with the real one. */
+function Outline({ shell }: { shell: Shell }) {
+  const strips = useMemo(
+    () =>
+      shell.walls.map((a, i) => {
+        const b = shell.walls[(i + 1) % shell.walls.length];
+        const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        return { key: i, x: ((a[0] + b[0]) / 2) * FT, z: (-(a[1] + b[1]) / 2) * FT, len: len * FT, angle: Math.atan2(b[1] - a[1], b[0] - a[0]) };
+      }),
+    [shell],
+  );
+  return (
+    <>
+      {strips.map((s) => (
+        <mesh key={s.key} position={[s.x, 0.1 * FT, s.z]} rotation-y={s.angle}>
+          <boxGeometry args={[s.len, 0.2 * FT, 1 * FT]} />
+          <meshStandardMaterial color="#ffffff" roughness={0.6} />
+        </mesh>
+      ))}
+    </>
   );
 }
 
