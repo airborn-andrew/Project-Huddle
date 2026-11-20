@@ -67,6 +67,8 @@ The pencil-and-ruler button on the project opens it at `/p/<slug>/design/<room>`
 
 In 3D, cabinets show at real size with a toe kick, drawer and door fronts in the picked style (shaker, slab or raised panel), bar pulls and a countertop; appliances are stainless with black glass. Cabinets come in white, gray or black, or in the homeowner's own finish: a photo of the door sample from the showroom, cropped to a square and saved with the project's photos. Picking a cabinet adds Doors and Finish to the dock, each with Every cabinet to use it on the whole kitchen, and new cabinets take the style and finish most of the kitchen has.
 
+Both sides edit together live. While someone drags a piece, the other screen shows it moving; each save tells the other screen to load the new layout at once; and the title says when the other side has the room open. This runs over Supabase Realtime on a channel whose name is signed with `HUDDLE_SECRET`, with the publishable key, which can reach no table. Without `SUPABASE_PUBLISHABLE_KEY`, the room refreshes every 20 seconds instead.
+
 A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
 
 The tables are in `supabase/migrations/20261120000000_design_room.sql`.
@@ -110,6 +112,7 @@ The tables are in `supabase/migrations/20261119000000_job_costing.sql`; apply it
 | `HUDDLE_SECRET` | Any long random string; signs the access cookies |
 | `SUPABASE_URL` | The Supabase project's address |
 | `SUPABASE_SECRET_KEY` | A Supabase secret key. It stays on the server and is never sent to a browser |
+| `SUPABASE_PUBLISHABLE_KEY` | The Supabase publishable key, for live editing in the Design Room. Row level security keeps it out of every table |
 | `BLOB_READ_WRITE_TOKEN` | Added by connecting a Vercel Blob store to the project |
 | `RESEND_API_KEY` | Resend sending key. When a homeowner sends a message or answers a change order, OHI gets an email that links to it. Without it, no email is sent |
 

@@ -9,6 +9,7 @@ import { Sheet } from "@/components/sheet";
 import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
+import { useLive, type LiveConfig } from "@/lib/design/live";
 import { doorStyles, fits, newPieceId, paints, type DoorStyle, type Piece } from "@/lib/design/layout";
 import { freeSpot, snapPiece, turned } from "@/lib/design/snap";
 import type { Role } from "@/lib/types";
@@ -26,6 +27,7 @@ export function DesignRoom({
   roomName,
   role,
   initial,
+  live,
 }: {
   slug: string;
   project: string;
@@ -33,8 +35,25 @@ export function DesignRoom({
   roomName: string;
   role: Role;
   initial: LayoutState;
+  live: LiveConfig;
 }) {
-  const { layout, versions, save, restore, notice, clearNotice } = useLayout(slug, room, initial);
+  // Pieces the other side is moving right now, shown where their finger is.
+  const [remote, setRemote] = useState<Record<string, Piece>>({});
+  const refreshRef = useRef<() => void>(() => {});
+  const { others, sendMove, sendSaved } = useLive(live, role, {
+    onMove: (piece, id) =>
+      setRemote((r) => {
+        const next = { ...r };
+        if (piece) next[id] = piece;
+        else delete next[id];
+        return next;
+      }),
+    onSaved: () => refreshRef.current(),
+  });
+  const { layout, versions, save, restore, refresh, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
+  refreshRef.current = () => void refresh();
+  /** Who else has the room open, the other side first. */
+  const here = others.find((r) => r !== role) ?? others[0];
   const [mode, setMode] = useState<ViewMode>("plan");
   const [selected, setSelected] = useState<string | null>(null);
   const [group, setGroup] = useState<Group>("base");
@@ -49,10 +68,14 @@ export function DesignRoom({
 
   const pieces = layout.pieces;
   const look = useMemo(() => kitchenLook(pieces), [pieces]);
+  // A fresh layout replaces the other side's moves in progress.
+  useEffect(() => setRemote({}), [layout.version]);
+
   const shown = useMemo(() => {
-    if (!draft) return pieces;
-    return pieces.some((p) => p.id === draft.id) ? pieces.map((p) => (p.id === draft.id ? draft : p)) : [...pieces, draft];
-  }, [pieces, draft]);
+    const moving = { ...remote, ...(draft && { [draft.id]: draft }) };
+    const placed = pieces.map((p) => moving[p.id] ?? p);
+    return [...placed, ...Object.values(moving).filter((m) => !pieces.some((p) => p.id === m.id))];
+  }, [pieces, draft, remote]);
   const blocked = draft && !fits(draft, pieces, layout.shell) ? draft.id : null;
 
   const commit = useCallback(
@@ -88,12 +111,14 @@ export function DesignRoom({
         if (!last && Math.hypot(moved.x - start.x, moved.y - start.y) < 1.5) return;
         last = snapPiece(moved, others, layout.shell);
         setDraft(last);
+        sendMove(last.id, last);
       };
       const up = () => {
         window.removeEventListener("pointermove", move);
         window.removeEventListener("pointerup", up);
         window.removeEventListener("pointercancel", up);
         setDraft(null);
+        sendMove(start.id, null);
         const placed = last;
         if (placed && fits(placed, others, layout.shell)) commit(pieces.map((p) => (p.id === placed.id ? placed : p)));
       };
@@ -102,7 +127,7 @@ export function DesignRoom({
       window.addEventListener("pointercancel", up);
       move(first);
     },
-    [pieces, layout.shell, commit],
+    [pieces, layout.shell, commit, sendMove],
   );
 
   const onPieceDown = useCallback(
@@ -149,16 +174,19 @@ export function DesignRoom({
       if (!at || overDock) {
         last = null;
         setDraft(null);
+        sendMove(seed.id, null);
         return;
       }
       last = snapPiece({ ...seed, x: at[0], y: at[1] }, pieces, layout.shell);
       setDraft(last);
+      sendMove(seed.id, last);
     };
     const up = () => {
       window.removeEventListener("pointermove", move);
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       setDraft(null);
+      sendMove(seed.id, null);
       if (last && fits(last, pieces, layout.shell)) {
         commit([...pieces, last]);
         setSelected(last.id);
@@ -243,7 +271,10 @@ export function DesignRoom({
           </Link>
           <div>
             <h1 className="title">{roomName}</h1>
-            <p className="title-sub">{project}</p>
+            <p className="title-sub">
+              {project}
+              {here && ` · ${here === "home" ? "Homeowner" : "OHI"} is here too`}
+            </p>
           </div>
         </div>
         <nav className="tools glass" aria-label="Design Room">
