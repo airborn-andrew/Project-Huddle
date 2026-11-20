@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Box, Camera, ChevronLeft, Grid2x2, History, RotateCw, Sparkles, Trash2, Undo2, X } from "lucide-react";
+import { Box, Camera, Check, ChevronLeft, ClipboardList, Grid2x2, History, Lock, LockOpen, PencilLine, RotateCw, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AiSheet } from "@/components/design/ai-sheet";
 import { FinishCrop } from "@/components/design/finish-crop";
@@ -11,6 +11,7 @@ import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
 import { layoutFile } from "@/lib/design/file";
+import { finishNames, planDxf, schedule, scheduleCsv } from "@/lib/design/schedule";
 import { useLive, type LiveConfig } from "@/lib/design/live";
 import { doorStyles, fits, newPieceId, paints, type DoorStyle, type Piece } from "@/lib/design/layout";
 import { freeSpot, snapPiece, turned } from "@/lib/design/snap";
@@ -52,7 +53,7 @@ export function DesignRoom({
       }),
     onSaved: () => refreshRef.current(),
   });
-  const { layout, versions, save, restore, refresh, upload, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
+  const { layout, versions, save, restore, refresh, upload, setStatus, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
   refreshRef.current = () => void refresh();
   /** Who else has the room open, the other side first. */
   const here = others.find((r) => r !== role) ?? others[0];
@@ -64,6 +65,8 @@ export function DesignRoom({
   const [pane, setPane] = useState<"size" | "doors" | "finish">("size");
   const [photo, setPhoto] = useState<File | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
+  const [readyOpen, setReadyOpen] = useState(false);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const undo = useRef<Piece[][]>([]);
   const stage = useRef<StageApi | null>(null);
   const dock = useRef<HTMLDivElement>(null);
@@ -260,6 +263,14 @@ export function DesignRoom({
     }
   };
 
+  const download = (name: string, body: string, type: string) => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([body], { type }));
+    a.download = name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+
   const back = () => {
     const previous = undo.current.pop();
     if (previous) save(previous);
@@ -303,6 +314,8 @@ export function DesignRoom({
             <h1 className="title">{roomName}</h1>
             <p className="title-sub">
               {project}
+              {layout.status === "ready" && " · Ready for OHI"}
+              {layout.status === "locked" && " · Locked for ordering"}
               {here && ` · ${here === "home" ? "Homeowner" : "OHI"} is here too`}
             </p>
           </div>
@@ -324,6 +337,31 @@ export function DesignRoom({
           {editable && (
             <button type="button" className="tool" aria-label="Undo" disabled={!undo.current.length} onClick={back}>
               <Undo2 />
+            </button>
+          )}
+          {role === "home" && layout.status === "open" && (
+            <button type="button" className="tool" aria-label="Ready for OHI" onClick={() => setReadyOpen(true)}>
+              <Check />
+            </button>
+          )}
+          {role === "home" && layout.status === "ready" && (
+            <button type="button" className="tool" aria-label="Keep changing it" onClick={() => setStatus("open")}>
+              <PencilLine />
+            </button>
+          )}
+          {role === "ohi" && (
+            <button
+              type="button"
+              className="tool"
+              aria-label={layout.status === "locked" ? "Open it for changes" : "Lock for ordering"}
+              onClick={() => setStatus(layout.status === "locked" ? "open" : "locked")}
+            >
+              {layout.status === "locked" ? <LockOpen /> : <Lock />}
+            </button>
+          )}
+          {role === "ohi" && layout.status === "locked" && (
+            <button type="button" className="tool" aria-label="Cabinet schedule" onClick={() => setScheduleOpen(true)}>
+              <ClipboardList />
             </button>
           )}
           {role === "ohi" && (
@@ -494,6 +532,65 @@ export function DesignRoom({
 
       {aiOpen && <AiSheet onSend={sendToAi} onUpload={upload} onClose={() => setAiOpen(false)} />}
 
+      {readyOpen && (
+        <Sheet
+          title="Ready for OHI"
+          onClose={() => setReadyOpen(false)}
+          footer={
+            <div className="sheet-foot">
+              <button
+                type="button"
+                className="button"
+                onClick={async () => {
+                  await setStatus("ready");
+                  setReadyOpen(false);
+                }}
+              >
+                Send to OHI
+              </button>
+            </div>
+          }
+        >
+          <p className="ai-step-text">
+            OHI gets word that your {roomName.toLowerCase()} is ready to look over. The layout stays as it is while OHI has it, and you can take it back to
+            make more changes until OHI locks it for ordering.
+          </p>
+        </Sheet>
+      )}
+
+      {scheduleOpen && (
+        <Sheet
+          title="Cabinet schedule"
+          onClose={() => setScheduleOpen(false)}
+          footer={
+            <div className="sheet-foot sheet-foot-pair">
+              <button
+                type="button"
+                className="button button-quiet"
+                onClick={() => download(`${project} ${roomName} schedule.csv`, scheduleCsv(pieces), "text/csv")}
+              >
+                Schedule (CSV)
+              </button>
+              <button
+                type="button"
+                className="button"
+                onClick={() =>
+                  download(
+                    `${project} ${roomName} plan.dxf`,
+                    planDxf({ project, roomName, shell: layout.shell, pieces, date: dateFormat.format(new Date()).toUpperCase() }),
+                    "application/dxf",
+                  )
+                }
+              >
+                Plan view (DXF)
+              </button>
+            </div>
+          }
+        >
+          <ScheduleTable pieces={pieces} />
+        </Sheet>
+      )}
+
       {historyOpen && (
         <Sheet title="Earlier versions" onClose={() => setHistoryOpen(false)}>
           {versions.map((v) => (
@@ -525,6 +622,48 @@ export function DesignRoom({
     </main>
   );
 }
+
+function ScheduleTable({ pieces }: { pieces: Piece[] }) {
+  const { lines } = schedule(pieces);
+  const photos = [...new Set(pieces.map((p) => p.finish).filter((f): f is string => Boolean(f) && !(f! in paints)))];
+  const name = finishNames(pieces);
+  return (
+    <>
+      <table className="schedule">
+        <thead>
+          <tr>
+            <th>Tag</th>
+            <th>Qty</th>
+            <th>Size</th>
+            <th>Door, finish</th>
+          </tr>
+        </thead>
+        <tbody>
+          {lines.map((l) => (
+            <tr key={l.tag}>
+              <td>{l.tag}</td>
+              <td>{l.count}</td>
+              <td>{[l.item.width, l.item.depth, l.item.height].map((v) => String(v).replace(".5", "½")).join(" × ")}</td>
+              <td>{[l.door && l.door[0].toUpperCase() + l.door.slice(1), l.finish].filter(Boolean).join(" · ")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {photos.length > 0 && (
+        <div className="schedule-finishes">
+          {photos.map((url) => (
+            <a key={url} href={url} target="_blank" rel="noreferrer" className="schedule-finish">
+              <span className="finish-swatch" style={{ backgroundImage: `url(${url})` }} />
+              {name(url)}
+            </a>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+const dateFormat = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
 
 /** The door style and finish most of the kitchen's cabinets have. */
 function kitchenLook(pieces: Piece[]): { door?: DoorStyle; finish?: string } {

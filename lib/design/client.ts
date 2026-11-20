@@ -95,6 +95,22 @@ export function useLayout(slug: string, room: string, initial: LayoutState, onSa
     [flush],
   );
 
+  /** Marks the layout ready, takes it back, locks or opens it. */
+  const setStatus = useCallback(
+    async (status: "open" | "ready" | "locked") => {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "status", status, version: saved.current.version }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.layout) adopt({ layout: data.layout, versions: data.versions ?? [] });
+      if (res.ok) saved$.current?.(data.layout.version);
+      else setNotice("The layout changed on the other side. This is the latest.");
+    },
+    [url, adopt],
+  );
+
   /** Saves a layout file back from an AI. Returns what is wrong with it, or null once it is saved. */
   const upload = useCallback(
     async (text: string): Promise<string[] | null> => {
@@ -115,5 +131,5 @@ export function useLayout(slug: string, room: string, initial: LayoutState, onSa
     [url, adopt],
   );
 
-  return { layout: state.layout, versions: state.versions, save, restore, refresh, upload, notice, clearNotice: () => setNotice(null) };
+  return { layout: state.layout, versions: state.versions, save, restore, refresh, upload, setStatus, notice, clearNotice: () => setNotice(null) };
 }

@@ -1,10 +1,11 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { roleOn } from "@/lib/access";
-import { checkPieces } from "@/lib/design/layout";
+import { checkPieces, type LayoutStatus } from "@/lib/design/layout";
 import { readBack } from "@/lib/design/file";
 import { openLayout } from "@/lib/design/open";
 import { listVersions, readVersion, writeLayout, type Layout } from "@/lib/design/store";
+import { notifyOhi } from "@/lib/notify";
 import { getProject } from "@/lib/projects";
 import type { Role } from "@/lib/types";
 
@@ -22,7 +23,7 @@ async function load(request: Request, { params }: Params) {
   const project = await getProject(slug);
   const opened = project && (await openLayout(project, room, new URL(request.url).origin));
   if (!opened) return { error: NextResponse.json({ error: "not found" }, { status: 404 }) };
-  return { slug, role, layout: opened.layout };
+  return { slug, role, layout: opened.layout, project: project!, roomName: opened.room.name };
 }
 
 export async function GET(request: Request, ctx: Params) {
@@ -35,6 +36,8 @@ export async function GET(request: Request, ctx: Params) {
  * save: new pieces, from the version the editor started at.
  * restore: OHI puts an earlier version back, as a new save.
  * upload: the layout file back from the homeowner's AI, as text.
+ * status: the homeowner marks the layout ready for OHI or takes it back;
+ * OHI locks it for ordering or opens it again.
  * A save that lands after someone else's gets 409 and the current layout.
  */
 export async function POST(request: Request, ctx: Params) {
@@ -44,6 +47,22 @@ export async function POST(request: Request, ctx: Params) {
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
   const version = Number(body.version);
   if (!Number.isInteger(version)) return NextResponse.json({ error: "version" }, { status: 400 });
+
+  if (body.action === "status") {
+    const status = body.status as LayoutStatus;
+    const allowed =
+      role === "ohi"
+        ? status === "locked" || status === "open"
+        : (status === "ready" && layout.status === "open") || (status === "open" && layout.status === "ready");
+    if (!allowed) return NextResponse.json({ error: "status" }, { status: 400 });
+    const saved = await writeLayout(slug, layout.room, version, { status }, role);
+    if (!saved) return NextResponse.json({ error: "conflict", ...(await payload(slug, layout, role)) }, { status: 409 });
+    if (status === "ready") {
+      const link = new URL(`/p/${slug}/design/${layout.room}`, request.url).toString();
+      after(() => notifyOhi({ project: found.project.name, what: `The ${found.roomName.toLowerCase()} layout is ready for you to look at.`, link }));
+    }
+    return NextResponse.json(await payload(slug, saved, role));
+  }
   if (layout.status !== "open" && role !== "ohi") {
     return NextResponse.json({ error: "This layout is with OHI now.", ...(await payload(slug, layout, role)) }, { status: 423 });
   }
