@@ -30,6 +30,9 @@ async function sign(value: string) {
 }
 
 export const homeToken = (slug: string) => sign(`${slug}:home`);
+
+/** The live channel for a Design Room. Only a page with access to the project learns its name. */
+export const designChannel = async (slug: string, room: string) => `design-${(await sign(`${slug}:${room}:design`)).slice(0, 32)}`;
 export const ohiToken = () => sign("ohi");
 
 type CookieJar = { get(name: string): { value: string } | undefined };

@@ -12,7 +12,7 @@ export type LayoutState = { layout: Layout; versions: SavedVersion[] };
  * refused save puts back what was saved. Refreshes when the page comes back
  * into view and every 20 seconds.
  */
-export function useLayout(slug: string, room: string, initial: LayoutState) {
+export function useLayout(slug: string, room: string, initial: LayoutState, onSaved?: (version: number) => void) {
   const [state, setState] = useState(initial);
   const [notice, setNotice] = useState<string | null>(null);
   const saved = useRef(initial.layout);
@@ -24,6 +24,9 @@ export function useLayout(slug: string, room: string, initial: LayoutState) {
     saved.current = next.layout;
     setState(next);
   }, []);
+
+  const saved$ = useRef(onSaved);
+  saved$.current = onSaved;
 
   const refresh = useCallback(async () => {
     if (document.hidden || busy.current) return;
@@ -57,6 +60,7 @@ export function useLayout(slug: string, room: string, initial: LayoutState) {
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
         saved.current = data.layout;
+        saved$.current?.(data.layout.version);
         // Keep what is on screen when more changes are waiting to save.
         setState((s) => (queue.current ? { ...s, versions: data.versions } : data));
       } else {
@@ -91,5 +95,5 @@ export function useLayout(slug: string, room: string, initial: LayoutState) {
     [flush],
   );
 
-  return { layout: state.layout, versions: state.versions, save, restore, notice, clearNotice: () => setNotice(null) };
+  return { layout: state.layout, versions: state.versions, save, restore, refresh, notice, clearNotice: () => setNotice(null) };
 }
