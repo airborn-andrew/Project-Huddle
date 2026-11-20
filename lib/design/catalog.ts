@@ -45,7 +45,7 @@ const base = (width: number): CatalogItem => ({
 export const catalog: CatalogItem[] = [
   ...steps(9, 36).map(base),
   ...[30, 33, 36].map((width) => ({ ...base(width), id: `SB${width}`, name: `Sink base ${width}"`, kind: "sink" as const })),
-  ...[15, 18, 24].map((width) => ({ ...base(width), id: `DB${width}`, name: `Drawer base ${width}"`, kind: "drawers" as const })),
+  ...steps(12, 36).map((width) => ({ ...base(width), id: `DB${width}`, name: `Drawer base ${width}"`, kind: "drawers" as const })),
   ...steps(9, 36).map(
     (width): CatalogItem => ({
       id: `W${width}30`,

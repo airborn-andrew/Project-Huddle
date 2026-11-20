@@ -284,6 +284,11 @@ export function DesignRoom({
     [pieces],
   );
   const shownPane = isCabinet ? pane : "size";
+  // A base cabinet comes with doors and shelves or with drawers, at the same width.
+  const inside =
+    chosenItem && /^D?B\d+$/.test(chosenItem.id) && catalogItem(`DB${chosenItem.width}`)
+      ? { now: chosenItem.kind === "drawers" ? "drawers" : "shelves", shelves: `B${chosenItem.width}`, drawers: `DB${chosenItem.width}` }
+      : null;
 
   // A newly picked piece opens on its sizes.
   useEffect(() => setPane("size"), [selected]);
@@ -417,6 +422,18 @@ export function DesignRoom({
             )}
             {editable && shownPane === "size" && (
               <div className="dock-row">
+                {inside && (
+                  <>
+                    <button type="button" className="dock-item" aria-pressed={inside.now === "shelves"} onClick={() => swap(chosen.id, inside.shelves)}>
+                      <span className="inside-shape" data-inside="shelves" aria-hidden="true" />
+                      <span className="dock-item-name">Shelves</span>
+                    </button>
+                    <button type="button" className="dock-item" aria-pressed={inside.now === "drawers"} onClick={() => swap(chosen.id, inside.drawers)}>
+                      <span className="inside-shape" data-inside="drawers" aria-hidden="true" />
+                      <span className="dock-item-name">Drawers</span>
+                    </button>
+                  </>
+                )}
                 <button type="button" className="dock-action" onClick={() => rotate(chosen.id)}>
                   <RotateCw />
                   Turn
