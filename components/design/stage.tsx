@@ -6,6 +6,7 @@ import { RotateCw } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { CabinetModel } from "@/components/design/cabinet";
 import { catalogItem, type CatalogItem } from "@/lib/design/catalog";
 import type { Piece, Shell } from "@/lib/design/layout";
 import { wallsOf } from "@/lib/design/snap";
@@ -47,12 +48,23 @@ const WALL = 4.5;
 export function Stage(props: Props) {
   return (
     <Canvas
+      shadows
       dpr={[1, 2]}
       gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true, toneMapping: THREE.NeutralToneMapping }}
       onPointerMissed={() => props.onSelect(null)}
     >
       <ambientLight intensity={0.35} />
-      <directionalLight position={[-6, 14, 8]} intensity={1.6} />
+      <directionalLight
+        position={[-6, 14, 8]}
+        intensity={1.6}
+        castShadow
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0004}
+        shadow-camera-left={-16}
+        shadow-camera-right={16}
+        shadow-camera-top={16}
+        shadow-camera-bottom={-16}
+      />
       <directionalLight position={[8, 6, -6]} intensity={0.35} />
       <Environment resolution={128}>
         <Lightformer intensity={1.6} position={[0, 10, 0]} rotation-x={Math.PI / 2} scale={[20, 20, 1]} />
@@ -109,13 +121,18 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
       camera.up.set(0, 0, -1);
     } else {
       camera.up.set(0, 1, 0);
-      const reach = Math.max(roomW, roomD) * 1.35 + 6;
-      c.target.set(center.x, 2, center.z);
-      camera.position.set(center.x + reach * 0.35, reach * 0.85, center.z + reach * 0.9);
+      // Far enough back that the whole room fits across the screen, looking down from the south.
+      const aspect = size.width / Math.max(1, size.height - dockHeight);
+      const half = Math.tan(THREE.MathUtils.degToRad(20));
+      const across = Math.max(roomW, roomD) / 2 + 2;
+      const reach = Math.max(across / (half * Math.min(1, aspect)), roomD) * 1.05;
+      const dir = new THREE.Vector3(0.08, 0.78, 0.9).normalize();
+      c.target.set(center.x, 1.5 - (dockHeight / size.height) * 6, center.z);
+      camera.position.copy(c.target).add(dir.multiplyScalar(reach));
     }
     camera.lookAt(c.target);
     c.update();
-  }, [mode, center, camera, lift, roomW, roomD]);
+  }, [mode, center, camera, lift, roomW, roomD, size.width, size.height, dockHeight]);
 
   // A press on a piece moves the piece, not the camera. This runs before the
   // camera controls see the press, so they never start panning.
@@ -168,7 +185,7 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
         enableRotate={mode === "3d"}
         maxPolarAngle={1.45}
         minDistance={4}
-        maxDistance={60}
+        maxDistance={90}
         minZoom={zoom * 0.6}
         maxZoom={zoom * 4}
         screenSpacePanning
@@ -176,7 +193,7 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
         touches={mode === "plan" ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_PAN } : undefined}
       />
 
-      <Floor shell={shell} />
+      <Floor shell={shell} mode={mode} />
       <Grid bounds={bounds} />
       <Walls shell={shell} mode={mode} center={center} />
 
@@ -205,7 +222,7 @@ function Room({ shell, pieces, selected, blocked, mode, dockHeight, editable, on
   );
 }
 
-function Floor({ shell }: { shell: Shell }) {
+function Floor({ shell, mode }: { shell: Shell; mode: ViewMode }) {
   const geometry = useMemo(() => {
     const shape = new THREE.Shape(shell.walls.map(([x, y]) => new THREE.Vector2(x * FT, y * FT)));
     const g = new THREE.ShapeGeometry(shape);
@@ -215,7 +232,7 @@ function Floor({ shell }: { shell: Shell }) {
   }, [shell]);
   return (
     <mesh geometry={geometry} position-y={-0.01} receiveShadow>
-      <meshStandardMaterial color="#1a1b1d" roughness={0.85} />
+      <meshStandardMaterial color={mode === "plan" ? "#1a1b1d" : "#3a3b3e"} roughness={mode === "plan" ? 0.85 : 0.55} />
     </mesh>
   );
 }
@@ -348,8 +365,24 @@ function PieceModel({
   // Wall cabinets read as outlines from above, so the floor pieces under them stay visible.
   const overhead = mode === "plan" && item.layer === "wall";
   const edge = blocked ? "#ff453a" : "#ffffff";
+  const place = { position: [piece.x * FT, item.elevation * FT, -piece.y * FT] as [number, number, number], "rotation-y": (piece.rotation * Math.PI) / 180 };
+
+  if (mode === "3d") {
+    return (
+      <group {...place}>
+        <CabinetModel item={item} door={piece.door} finish={piece.finish} />
+        {/* An invisible box to grab, outlined when picked or when it does not fit. */}
+        <mesh position-y={h / 2} onPointerDown={onPointerDown}>
+          <boxGeometry args={[w, h, d]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+          {(selected || blocked) && <Edges threshold={20} color={edge} />}
+        </mesh>
+      </group>
+    );
+  }
+
   return (
-    <group position={[piece.x * FT, item.elevation * FT, -piece.y * FT]} rotation-y={(piece.rotation * Math.PI) / 180}>
+    <group {...place}>
       <mesh position-y={h / 2} onPointerDown={onPointerDown}>
         <boxGeometry args={[w, h, d]} />
         <meshStandardMaterial
@@ -362,13 +395,7 @@ function PieceModel({
         />
         <Edges threshold={20} color={edge} transparent opacity={selected || blocked ? 1 : 0.55} />
       </mesh>
-      {item.counter && mode === "3d" && (
-        <mesh position={[0, h + 0.75 * FT, 0.5 * FT]}>
-          <boxGeometry args={[w, 1.5 * FT, d + 1 * FT]} />
-          <meshStandardMaterial color="#c8c9cc" roughness={0.35} />
-        </mesh>
-      )}
-      {mode === "plan" && <PlanMarks item={item} top={h + 0.05 * FT} color={edge} faint={overhead} />}
+      <PlanMarks item={item} top={h + 0.05 * FT} color={edge} faint={overhead} />
     </group>
   );
 }

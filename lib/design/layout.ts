@@ -28,13 +28,29 @@ export type Shell = {
   origin: [number, number];
 };
 
+export const doorStyles = ["shaker", "slab", "raised"] as const;
+export type DoorStyle = (typeof doorStyles)[number];
+
+/** Painted finishes every kitchen has; a homeowner's own finish is the address of a photo of the door sample. */
+export const paints = { white: "#ecebe7", gray: "#8d8f93", black: "#26272a" } as const;
+export type Paint = keyof typeof paints;
+
 export type Piece = {
   id: string;
   item: string;
   x: number;
   y: number;
   rotation: number;
+  /** Cabinet door style. Shaker when not set. */
+  door?: DoorStyle;
+  /** A paint name, or the address of a finish photo. White when not set. */
+  finish?: string;
 };
+
+/** A finish photo the app stored, as opposed to an address from anywhere. */
+export const isFinishPhoto = (v: string) =>
+  /^https:\/\/[a-z0-9]+\.public\.blob\.vercel-storage\.com\/projects\/[a-z0-9]+\/photos\/[\w.-]+$/i.test(v) ||
+  (/^data:image\/jpeg;base64,/.test(v) && v.length < 400_000);
 
 export type LayoutStatus = "open" | "ready" | "locked";
 
@@ -125,7 +141,17 @@ export function checkPieces(pieces: unknown, shell: Shell): { pieces: Piece[]; p
     let id = typeof p?.id === "string" && p.id.trim() ? p.id.trim().slice(0, 24) : "";
     if (!id || ids.has(id)) id = newPieceId();
     ids.add(id);
-    clean.push({ id, item: item.id, x: round(x), y: round(y), rotation: (((Math.round(rotation / 90) * 90) % 360) + 360) % 360 });
+    const piece: Piece = { id, item: item.id, x: round(x), y: round(y), rotation: (((Math.round(rotation / 90) * 90) % 360) + 360) % 360 };
+    if (p?.door !== undefined) {
+      if (!doorStyles.includes(p.door as DoorStyle)) problems.push(`The ${item.id} at ${piece.x}, ${piece.y} needs a door style of shaker, slab or raised.`);
+      else piece.door = p.door;
+    }
+    if (p?.finish !== undefined) {
+      if (typeof p.finish !== "string" || !(p.finish in paints || isFinishPhoto(p.finish))) {
+        problems.push(`The ${item.id} at ${piece.x}, ${piece.y} needs a finish of white, gray, black or a finish photo from this kitchen.`);
+      } else piece.finish = p.finish;
+    }
+    clean.push(piece);
   }
 
   for (const [i, p] of clean.entries()) {

@@ -2,19 +2,21 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Box, ChevronLeft, Grid2x2, History, RotateCw, Trash2, Undo2, X } from "lucide-react";
+import { Box, Camera, ChevronLeft, Grid2x2, History, RotateCw, Trash2, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FinishCrop } from "@/components/design/finish-crop";
 import { Sheet } from "@/components/sheet";
 import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
-import { fits, newPieceId, type Piece } from "@/lib/design/layout";
+import { doorStyles, fits, newPieceId, paints, type DoorStyle, type Piece } from "@/lib/design/layout";
 import { freeSpot, snapPiece, turned } from "@/lib/design/snap";
 import type { Role } from "@/lib/types";
 
 const Stage = dynamic(() => import("@/components/design/stage").then((m) => m.Stage), { ssr: false });
 
-const DOCK = 196;
+/** Room the dock takes at the bottom of the screen, for framing the room above it. */
+const DOCK = 220;
 
 
 export function DesignRoom({
@@ -38,12 +40,15 @@ export function DesignRoom({
   const [group, setGroup] = useState<Group>("base");
   const [draft, setDraft] = useState<Piece | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pane, setPane] = useState<"size" | "doors" | "finish">("size");
+  const [photo, setPhoto] = useState<File | null>(null);
   const undo = useRef<Piece[][]>([]);
   const stage = useRef<StageApi | null>(null);
   const dock = useRef<HTMLDivElement>(null);
   const editable = layout.status === "open" || role === "ohi";
 
   const pieces = layout.pieces;
+  const look = useMemo(() => kitchenLook(pieces), [pieces]);
   const shown = useMemo(() => {
     if (!draft) return pieces;
     return pieces.some((p) => p.id === draft.id) ? pieces.map((p) => (p.id === draft.id ? draft : p)) : [...pieces, draft];
@@ -110,6 +115,9 @@ export function DesignRoom({
     [pieces, follow],
   );
 
+  /** A new cabinet takes the door style and finish the kitchen already has. */
+  const styled = (p: Piece): Piece => (catalogItem(p.item)?.group === "appliance" ? p : { ...p, ...look });
+
   /** A catalog item: drag it up into the room, or tap it to place it in the first open spot. */
   const onItemDown = (item: CatalogItem) => (e: React.PointerEvent) => {
     if (!editable) return;
@@ -118,14 +126,14 @@ export function DesignRoom({
       if (startY - ev.clientY < 24) return;
       window.removeEventListener("pointermove", fromDock);
       window.removeEventListener("pointerup", tap);
-      followNew({ id: newPieceId(), item: item.id, x: 0, y: 0, rotation: 0 }, ev);
+      followNew(styled({ id: newPieceId(), item: item.id, x: 0, y: 0, rotation: 0 }), ev);
     };
     const tap = () => {
       window.removeEventListener("pointermove", fromDock);
       window.removeEventListener("pointerup", tap);
       const spot = freeSpot(item.id, pieces, layout.shell);
       if (spot) {
-        commit([...pieces, spot]);
+        commit([...pieces, styled(spot)]);
         setSelected(spot.id);
       }
     };
@@ -189,12 +197,26 @@ export function DesignRoom({
     if (fits(next, others, layout.shell)) commit(pieces.map((p) => (p.id === id ? next : p)));
   };
 
+  /** Sets a cabinet's door style or finish, or every cabinet's when `all` is set. */
+  const restyle = (id: string, change: { door?: DoorStyle; finish?: string }, all = false) => {
+    commit(pieces.map((p) => (p.id === id || (all && catalogItem(p.item)?.group !== "appliance") ? { ...p, ...change } : p)));
+  };
+
   const back = () => {
     const previous = undo.current.pop();
     if (previous) save(previous);
   };
 
   const swaps = chosenItem ? catalog.filter((c) => c.group === chosenItem.group) : [];
+  const isCabinet = Boolean(chosenItem && chosenItem.group !== "appliance");
+  const finishes = useMemo(
+    () => [...Object.keys(paints), ...new Set(pieces.map((p) => p.finish).filter((f): f is string => Boolean(f) && !(f! in paints)))],
+    [pieces],
+  );
+  const shownPane = isCabinet ? pane : "size";
+
+  // A newly picked piece opens on its sizes.
+  useEffect(() => setPane("size"), [selected]);
 
   return (
     <main className="huddle design">
@@ -252,7 +274,7 @@ export function DesignRoom({
         </button>
       )}
 
-      <div className="dock glass-thick" ref={dock} style={{ height: DOCK }}>
+      <div className="dock glass-thick" ref={dock}>
         {chosen && chosenItem ? (
           <>
             <div className="dock-head">
@@ -266,7 +288,22 @@ export function DesignRoom({
                 <X />
               </button>
             </div>
-            {editable && (
+            {editable && isCabinet && (
+              <nav className="dock-tabs dock-tabs-piece" aria-label="Change">
+                {(
+                  [
+                    ["size", "Size"],
+                    ["doors", "Doors"],
+                    ["finish", "Finish"],
+                  ] as const
+                ).map(([id, name]) => (
+                  <button key={id} type="button" className="dock-tab" aria-pressed={shownPane === id} onClick={() => setPane(id)}>
+                    {name}
+                  </button>
+                ))}
+              </nav>
+            )}
+            {editable && shownPane === "size" && (
               <div className="dock-row">
                 <button type="button" className="dock-action" onClick={() => rotate(chosen.id)}>
                   <RotateCw />
@@ -288,6 +325,62 @@ export function DesignRoom({
                     <span className="dock-item-name">{shortName(c)}</span>
                   </button>
                 ))}
+              </div>
+            )}
+            {editable && shownPane === "doors" && (
+              <div className="dock-row">
+                {doorStyles.map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    className="dock-item"
+                    aria-pressed={(chosen.door ?? "shaker") === style}
+                    onClick={() => restyle(chosen.id, { door: style })}
+                  >
+                    <span className="door-shape" data-style={style} aria-hidden="true" />
+                    <span className="dock-item-name">{style[0].toUpperCase() + style.slice(1)}</span>
+                  </button>
+                ))}
+                <button type="button" className="dock-action" onClick={() => restyle(chosen.id, { door: chosen.door ?? "shaker" }, true)}>
+                  <span className="dock-action-text">Every cabinet</span>
+                </button>
+              </div>
+            )}
+            {editable && shownPane === "finish" && (
+              <div className="dock-row">
+                {finishes.map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    className="dock-item"
+                    aria-pressed={(chosen.finish ?? "white") === f}
+                    aria-label={f in paints ? f : "Your finish"}
+                    onClick={() => restyle(chosen.id, { finish: f })}
+                  >
+                    <span
+                      className="finish-swatch"
+                      style={f in paints ? { background: paints[f as keyof typeof paints] } : { backgroundImage: `url(${f})` }}
+                    />
+                    <span className="dock-item-name">{f in paints ? f[0].toUpperCase() + f.slice(1) : "Yours"}</span>
+                  </button>
+                ))}
+                <label className="dock-action">
+                  <Camera />
+                  Photo
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) setPhoto(file);
+                    }}
+                  />
+                </label>
+                <button type="button" className="dock-action" onClick={() => restyle(chosen.id, { finish: chosen.finish ?? "white" }, true)}>
+                  <span className="dock-action-text">Every cabinet</span>
+                </button>
               </div>
             )}
           </>
@@ -321,6 +414,18 @@ export function DesignRoom({
         )}
       </div>
 
+      {photo && chosen && (
+        <FinishCrop
+          slug={slug}
+          file={photo}
+          onClose={() => setPhoto(null)}
+          onDone={(url) => {
+            setPhoto(null);
+            restyle(chosen.id, { finish: url });
+          }}
+        />
+      )}
+
       {historyOpen && (
         <Sheet title="Earlier versions" onClose={() => setHistoryOpen(false)}>
           {versions.map((v) => (
@@ -351,6 +456,19 @@ export function DesignRoom({
       )}
     </main>
   );
+}
+
+/** The door style and finish most of the kitchen's cabinets have. */
+function kitchenLook(pieces: Piece[]): { door?: DoorStyle; finish?: string } {
+  const most = <T,>(values: (T | undefined)[]) => {
+    const counts = new Map<T, number>();
+    for (const v of values) if (v !== undefined) counts.set(v, (counts.get(v) ?? 0) + 1);
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+  };
+  const cabinets = pieces.filter((p) => catalogItem(p.item)?.group !== "appliance");
+  const door = most(cabinets.map((p) => p.door));
+  const finish = most(cabinets.map((p) => p.finish));
+  return { ...(door && { door }), ...(finish && { finish }) };
 }
 
 const when = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
