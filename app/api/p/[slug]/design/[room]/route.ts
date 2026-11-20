@@ -2,7 +2,6 @@ import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { roleOn } from "@/lib/access";
 import { checkPieces, type LayoutStatus } from "@/lib/design/layout";
-import { readBack } from "@/lib/design/file";
 import { openLayout } from "@/lib/design/open";
 import { listVersions, readVersion, writeLayout, type Layout } from "@/lib/design/store";
 import { notifyOhi } from "@/lib/notify";
@@ -35,7 +34,6 @@ export async function GET(request: Request, ctx: Params) {
 /**
  * save: new pieces, from the version the editor started at.
  * restore: OHI puts an earlier version back, as a new save.
- * upload: the layout file back from the homeowner's AI, as text.
  * status: the homeowner marks the layout ready for OHI or takes it back;
  * OHI locks it for ordering or opens it again.
  * A save that lands after someone else's gets 409 and the current layout.
@@ -70,10 +68,6 @@ export async function POST(request: Request, ctx: Params) {
   let raw: unknown;
   if (body.action === "save") raw = body.pieces;
   else if (body.action === "restore" && role === "ohi") raw = await readVersion(slug, layout.room, Number(body.restore));
-  else if (body.action === "upload" && typeof body.text === "string" && body.text.length < 400_000) {
-    raw = readBack(body.text);
-    if (!raw) return NextResponse.json({ error: "That isn't a layout file. Send back the whole file from your AI, or paste it in." }, { status: 422 });
-  }
   else return NextResponse.json({ error: "action" }, { status: 400 });
   if (!raw) return NextResponse.json({ error: "That version is not there." }, { status: 404 });
 

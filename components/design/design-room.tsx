@@ -2,17 +2,14 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Box, Camera, Check, Rotate3d, ChevronLeft, ClipboardList, Grid2x2, History, Lock, LockOpen, PencilLine, RotateCw, Sparkles, Trash2, Undo2, X } from "lucide-react";
+import { Box, Camera, Check, Rotate3d, ChevronLeft, ClipboardList, Grid2x2, History, Lock, LockOpen, PencilLine, RotateCw, Trash2, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AiSheet } from "@/components/design/ai-sheet";
 import { FinishCrop } from "@/components/design/finish-crop";
 import { Sheet } from "@/components/sheet";
 import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
 import { arKind, openAr, type ArKind } from "@/lib/design/ar";
-import { layoutFile, layoutText } from "@/lib/design/file";
-import { layoutPdf } from "@/lib/design/pdf";
 import { finishNames, planDxf, schedule, scheduleCsv } from "@/lib/design/schedule";
 import { useLive, type LiveConfig } from "@/lib/design/live";
 import { doorStyles, fits, newPieceId, paints, type DoorStyle, type Piece } from "@/lib/design/layout";
@@ -55,7 +52,7 @@ export function DesignRoom({
       }),
     onSaved: () => refreshRef.current(),
   });
-  const { layout, versions, save, restore, refresh, upload, setStatus, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
+  const { layout, versions, save, restore, refresh, setStatus, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
   refreshRef.current = () => void refresh();
   /** Who else has the room open, the other side first. */
   const here = others.find((r) => r !== role) ?? others[0];
@@ -66,7 +63,6 @@ export function DesignRoom({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [pane, setPane] = useState<"size" | "doors" | "finish">("size");
   const [photo, setPhoto] = useState<File | null>(null);
-  const [aiOpen, setAiOpen] = useState(false);
   const [readyOpen, setReadyOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [ar, setAr] = useState<ArKind>(null);
@@ -242,48 +238,6 @@ export function DesignRoom({
     commit(pieces.map((p) => (p.id === id || (all && catalogItem(p.item)?.group !== "appliance") ? { ...p, ...change } : p)));
   };
 
-  /**
-   * One PDF for the homeowner's AI, with the 3D picture, the note and the
-   * layout file, through the share sheet where there is one, or as a download.
-   */
-  const sendToAi = async () => {
-    const was = mode;
-    setSelected(null);
-    setMode("3d");
-    // Time for the 3D view to draw before the snapshot.
-    await new Promise((r) => setTimeout(r, 700));
-    // The 3D view draws on a clear background; the picture gets the app's gray behind it.
-    const view = stage.current?.canvas();
-    const canvas = view && document.createElement("canvas");
-    if (view && canvas) {
-      canvas.width = view.width;
-      canvas.height = view.height;
-      const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#2e3034";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(view, 0, 0);
-    }
-    const picture = canvas ? await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9)) : null;
-    setMode(was);
-    const file = layoutFile({ project, roomName, shell: layout.shell, pieces });
-    const pdf = layoutPdf({
-      title: `${project}, ${roomName.toLowerCase()} layout`,
-      note: [...file.note, file.units],
-      json: layoutText(file),
-      jpeg: picture && canvas ? { bytes: new Uint8Array(await picture.arrayBuffer()), width: canvas.width, height: canvas.height } : null,
-    });
-    const share = new File([pdf], `${project} ${roomName} layout.pdf`, { type: "application/pdf" });
-    if (navigator.canShare?.({ files: [share] })) {
-      await navigator.share({ files: [share], title: `${roomName} layout` }).catch(() => {});
-      return;
-    }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(share);
-    a.download = share.name;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  };
-
   /** The cabinets at true size in the real kitchen, on phones that can show AR. */
   const seeInKitchen = async () => {
     const model = stage.current?.arModel();
@@ -379,11 +333,6 @@ export function DesignRoom({
           {ar && (
             <button type="button" className="tool" aria-label="See it in your kitchen" disabled={arBusy} onClick={seeInKitchen}>
               <Rotate3d />
-            </button>
-          )}
-          {editable && (
-            <button type="button" className="tool" aria-label="Share with your AI" onClick={() => setAiOpen(true)}>
-              <Sparkles />
             </button>
           )}
           {editable && (
@@ -589,8 +538,6 @@ export function DesignRoom({
         />
       )}
 
-      {aiOpen && <AiSheet onSend={sendToAi} onUpload={upload} onClose={() => setAiOpen(false)} />}
-
       {readyOpen && (
         <Sheet
           title="Ready for OHI"
@@ -610,7 +557,7 @@ export function DesignRoom({
             </div>
           }
         >
-          <p className="ai-step-text">
+          <p className="sheet-text">
             OHI gets word that your {roomName.toLowerCase()} is ready to look over. The layout stays as it is while OHI has it, and you can take it back to
             make more changes until OHI locks it for ordering.
           </p>
