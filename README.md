@@ -69,6 +69,8 @@ In 3D, cabinets show at real size with a toe kick, drawer and door fronts in the
 
 Both sides edit together live. While someone drags a piece, the other screen shows it moving; each save tells the other screen to load the new layout at once; and the title says when the other side has the room open. This runs over Supabase Realtime on a channel whose name is signed with `HUDDLE_SECRET`, with the publishable key, which can reach no table. Without `SUPABASE_PUBLISHABLE_KEY`, the room refreshes every 20 seconds instead.
 
+The sparkle button shares the room with the homeowner's own AI (ChatGPT, Grok or any other). Send to your AI hands over the layout file and a 3D snapshot through the phone's share sheet, or downloads them on a computer. The file, built in `lib/design/file.ts`, opens with a short note in plain words, then the room, the catalog, door styles, finishes and the pieces. What comes back is uploaded as a file or pasted in, wrapped in other text or not; it is checked like any other save, and anything wrong is listed in plain words for the homeowner to hand back to the AI.
+
 A layout is a list of pieces from the catalog in `lib/design/catalog.ts`, in inches from the room's southwest corner. Every save is checked (catalog sizes, quarter turns, inside the walls, nothing overlapping) and kept as a version, and OHI can put any earlier version back. Each save starts from the version it was made on, so two people saving at once never overwrite each other.
 
 The tables are in `supabase/migrations/20261120000000_design_room.sql`.

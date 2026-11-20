@@ -2,13 +2,15 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { Box, Camera, ChevronLeft, Grid2x2, History, RotateCw, Trash2, Undo2, X } from "lucide-react";
+import { Box, Camera, ChevronLeft, Grid2x2, History, RotateCw, Sparkles, Trash2, Undo2, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AiSheet } from "@/components/design/ai-sheet";
 import { FinishCrop } from "@/components/design/finish-crop";
 import { Sheet } from "@/components/sheet";
 import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
+import { layoutFile } from "@/lib/design/file";
 import { useLive, type LiveConfig } from "@/lib/design/live";
 import { doorStyles, fits, newPieceId, paints, type DoorStyle, type Piece } from "@/lib/design/layout";
 import { freeSpot, snapPiece, turned } from "@/lib/design/snap";
@@ -50,7 +52,7 @@ export function DesignRoom({
       }),
     onSaved: () => refreshRef.current(),
   });
-  const { layout, versions, save, restore, refresh, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
+  const { layout, versions, save, restore, refresh, upload, notice, clearNotice } = useLayout(slug, room, initial, sendSaved);
   refreshRef.current = () => void refresh();
   /** Who else has the room open, the other side first. */
   const here = others.find((r) => r !== role) ?? others[0];
@@ -61,6 +63,7 @@ export function DesignRoom({
   const [historyOpen, setHistoryOpen] = useState(false);
   const [pane, setPane] = useState<"size" | "doors" | "finish">("size");
   const [photo, setPhoto] = useState<File | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const undo = useRef<Piece[][]>([]);
   const stage = useRef<StageApi | null>(null);
   const dock = useRef<HTMLDivElement>(null);
@@ -230,6 +233,33 @@ export function DesignRoom({
     commit(pieces.map((p) => (p.id === id || (all && catalogItem(p.item)?.group !== "appliance") ? { ...p, ...change } : p)));
   };
 
+  /** The layout file and a 3D snapshot, through the share sheet where there is one, or as downloads. */
+  const sendToAi = async () => {
+    const was = mode;
+    setSelected(null);
+    setMode("3d");
+    // Two frames for the 3D view to draw before the snapshot.
+    await new Promise((r) => setTimeout(r, 700));
+    const canvas = stage.current?.canvas();
+    const picture = canvas ? await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png")) : null;
+    setMode(was);
+    const name = `${project} ${roomName}`;
+    const json = JSON.stringify(layoutFile({ project, roomName, shell: layout.shell, pieces }), null, 2);
+    const files = [new File([json], `${name} layout.json`, { type: "application/json" })];
+    if (picture) files.push(new File([picture], `${name}.png`, { type: "image/png" }));
+    if (navigator.canShare?.({ files })) {
+      await navigator.share({ files, title: `${roomName} layout` }).catch(() => {});
+      return;
+    }
+    for (const file of files) {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(file);
+      a.download = file.name;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+  };
+
   const back = () => {
     const previous = undo.current.pop();
     if (previous) save(previous);
@@ -286,6 +316,11 @@ export function DesignRoom({
           >
             {mode === "plan" ? <Box /> : <Grid2x2 />}
           </button>
+          {editable && (
+            <button type="button" className="tool" aria-label="Share with your AI" onClick={() => setAiOpen(true)}>
+              <Sparkles />
+            </button>
+          )}
           {editable && (
             <button type="button" className="tool" aria-label="Undo" disabled={!undo.current.length} onClick={back}>
               <Undo2 />
@@ -456,6 +491,8 @@ export function DesignRoom({
           }}
         />
       )}
+
+      {aiOpen && <AiSheet onSend={sendToAi} onUpload={upload} onClose={() => setAiOpen(false)} />}
 
       {historyOpen && (
         <Sheet title="Earlier versions" onClose={() => setHistoryOpen(false)}>
