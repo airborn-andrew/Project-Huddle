@@ -1776,6 +1776,14 @@ textarea.field {
   -webkit-touch-callout: none;
 }
 
+/* Fields still take typing, selection and the long-press Paste menu. */
+.design textarea,
+.design input {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
+}
+
 .design-title {
   display: flex;
   align-items: flex-start;
