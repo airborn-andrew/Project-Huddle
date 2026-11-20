@@ -11,7 +11,8 @@ import type { StageApi, ViewMode } from "@/components/design/stage";
 import { catalog, catalogItem, groups, type CatalogItem, type Group } from "@/lib/design/catalog";
 import { useLayout, type LayoutState } from "@/lib/design/client";
 import { arKind, openAr, type ArKind } from "@/lib/design/ar";
-import { layoutFile } from "@/lib/design/file";
+import { layoutFile, layoutText } from "@/lib/design/file";
+import { layoutPdf } from "@/lib/design/pdf";
 import { finishNames, planDxf, schedule, scheduleCsv } from "@/lib/design/schedule";
 import { useLive, type LiveConfig } from "@/lib/design/live";
 import { doorStyles, fits, newPieceId, paints, type DoorStyle, type Piece } from "@/lib/design/layout";
@@ -241,31 +242,46 @@ export function DesignRoom({
     commit(pieces.map((p) => (p.id === id || (all && catalogItem(p.item)?.group !== "appliance") ? { ...p, ...change } : p)));
   };
 
-  /** The layout file and a 3D snapshot, through the share sheet where there is one, or as downloads. */
+  /**
+   * One PDF for the homeowner's AI, with the 3D picture, the note and the
+   * layout file, through the share sheet where there is one, or as a download.
+   */
   const sendToAi = async () => {
     const was = mode;
     setSelected(null);
     setMode("3d");
-    // Two frames for the 3D view to draw before the snapshot.
+    // Time for the 3D view to draw before the snapshot.
     await new Promise((r) => setTimeout(r, 700));
-    const canvas = stage.current?.canvas();
-    const picture = canvas ? await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png")) : null;
+    // The 3D view draws on a clear background; the picture gets the app's gray behind it.
+    const view = stage.current?.canvas();
+    const canvas = view && document.createElement("canvas");
+    if (view && canvas) {
+      canvas.width = view.width;
+      canvas.height = view.height;
+      const ctx = canvas.getContext("2d")!;
+      ctx.fillStyle = "#2e3034";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(view, 0, 0);
+    }
+    const picture = canvas ? await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.9)) : null;
     setMode(was);
-    const name = `${project} ${roomName}`;
-    const json = JSON.stringify(layoutFile({ project, roomName, shell: layout.shell, pieces }), null, 2);
-    const files = [new File([json], `${name} layout.json`, { type: "application/json" })];
-    if (picture) files.push(new File([picture], `${name}.png`, { type: "image/png" }));
-    if (navigator.canShare?.({ files })) {
-      await navigator.share({ files, title: `${roomName} layout` }).catch(() => {});
+    const file = layoutFile({ project, roomName, shell: layout.shell, pieces });
+    const pdf = layoutPdf({
+      title: `${project}, ${roomName.toLowerCase()} layout`,
+      note: [...file.note, file.units],
+      json: layoutText(file),
+      jpeg: picture && canvas ? { bytes: new Uint8Array(await picture.arrayBuffer()), width: canvas.width, height: canvas.height } : null,
+    });
+    const share = new File([pdf], `${project} ${roomName} layout.pdf`, { type: "application/pdf" });
+    if (navigator.canShare?.({ files: [share] })) {
+      await navigator.share({ files: [share], title: `${roomName} layout` }).catch(() => {});
       return;
     }
-    for (const file of files) {
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(file);
-      a.download = file.name;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(share);
+    a.download = share.name;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
 
   /** The cabinets at true size in the real kitchen, on phones that can show AR. */

@@ -4,9 +4,9 @@ import { useState } from "react";
 import { Sheet } from "@/components/sheet";
 
 /**
- * Hands the layout to the homeowner's own AI and takes its changes back. The
- * file and a snapshot of the room go out through the phone's share sheet (or
- * download on a computer); the file the AI sends back is uploaded and checked
+ * Hands the layout to the homeowner's own AI and takes its changes back. A PDF
+ * with a snapshot of the room and the layout file goes out through the phone's
+ * share sheet (or downloads on a computer); the file the AI sends back is uploaded and checked
  * like any other save.
  */
 export function AiSheet({
@@ -26,7 +26,7 @@ export function AiSheet({
       <section className="ai-step">
         <h3 className="ai-step-title">Send the layout</h3>
         <p className="ai-step-text">
-          Your AI gets the layout file and a picture of the room. Ask for changes in your own words, and ask it to send the layout back as a file.
+          Your AI gets one PDF with a picture of the room and the full layout, sizes and all. Ask for changes in your own words, and ask it to send the layout back as a file.
         </p>
         <button
           type="button"
