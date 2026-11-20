@@ -251,7 +251,8 @@ export function Huddle({
     );
   };
   const openChanges = state.changeOrders.filter((c) => !c.answer).length;
-  const designRoom = designRooms(plan)[0];
+  // The Design Room is a prototype OHI works in; homeowners don't see it yet.
+  const designRoom = role === "ohi" ? designRooms(plan)[0] : undefined;
 
   return (
     <main className="huddle" style={{ "--levels-height": `${plan.levels.length * 32 + 8}px` } as React.CSSProperties}>

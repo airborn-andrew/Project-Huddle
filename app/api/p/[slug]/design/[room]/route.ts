@@ -19,6 +19,8 @@ async function load(request: Request, { params }: Params) {
   const { slug, room } = await params;
   const role = await roleOn(slug, await cookies());
   if (!role) return { error: NextResponse.json({ error: "locked" }, { status: 401 }) };
+  // A prototype: OHI only for now.
+  if (role !== "ohi") return { error: NextResponse.json({ error: "not found" }, { status: 404 }) };
   const project = await getProject(slug);
   const opened = project && (await openLayout(project, room, new URL(request.url).origin));
   if (!opened) return { error: NextResponse.json({ error: "not found" }, { status: 404 }) };
