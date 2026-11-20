@@ -1983,6 +1983,24 @@ textarea.field {
   background: rgba(255, 255, 255, 0.28);
 }
 
+.inside-shape {
+  align-self: center;
+  width: 32px;
+  height: 36px;
+  border: 1.5px solid rgba(255, 255, 255, 0.8);
+  border-radius: 2px;
+}
+
+.inside-shape[data-inside="shelves"] {
+  background: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)) 0 8px / 100% 1px no-repeat,
+    linear-gradient(90deg, transparent calc(50% - 0.5px), rgba(255, 255, 255, 0.55) calc(50% - 0.5px) calc(50% + 0.5px), transparent calc(50% + 0.5px)) 0 9px / 100% calc(100% - 9px) no-repeat;
+}
+
+.inside-shape[data-inside="drawers"] {
+  background: linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)) 0 8px / 100% 1px no-repeat,
+    linear-gradient(rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0.8)) 0 21px / 100% 1px no-repeat;
+}
+
 .finish-swatch {
   align-self: center;
   width: 40px;
